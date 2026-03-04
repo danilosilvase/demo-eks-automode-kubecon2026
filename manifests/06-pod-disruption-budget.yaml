@@ -1,0 +1,32 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sample-app-pdb
+  namespace: demo-app
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: sample-app
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: compute-intensive-pdb
+  namespace: demo-app
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: compute-intensive
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: memory-intensive-pdb
+  namespace: demo-app
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: memory-intensive

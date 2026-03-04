@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memory-intensive
+  namespace: demo-app
+  labels:
+    app: memory-intensive
+    workload-type: memory
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: memory-intensive
+  template:
+    metadata:
+      labels:
+        app: memory-intensive
+        workload-type: memory
+    spec:
+      containers:
+      - name: stress
+        image: polinux/stress
+        command: ["stress"]
+        args: ["--vm", "1", "--vm-bytes", "2G", "--timeout", "3600s", "--verbose"]
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2Gi
+          limits:
+            cpu: 500m
+            memory: 2Gi

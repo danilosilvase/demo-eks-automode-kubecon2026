@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compute-intensive
+  namespace: demo-app
+  labels:
+    app: compute-intensive
+    workload-type: compute
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: compute-intensive
+  template:
+    metadata:
+      labels:
+        app: compute-intensive
+        workload-type: compute
+    spec:
+      containers:
+      - name: stress
+        image: polinux/stress
+        command: ["stress"]
+        args: ["--cpu", "2", "--timeout", "3600s", "--verbose"]
+        resources:
+          requests:
+            cpu: 2000m
+            memory: 512Mi
+          limits:
+            cpu: 2000m
+            memory: 512Mi
