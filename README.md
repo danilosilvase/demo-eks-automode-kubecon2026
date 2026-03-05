@@ -97,15 +97,14 @@ This opens a tmux session with three panes:
 
 ```
 ┌─────────────────────────────────────────┐
-│                                         │
-│         eks-node-viewer                 │
-│    (real-time node utilization bars)    │
-│                                         │
-├────────────────────┬────────────────────┤
-│                    │                    │
-│   k9s (pods view)  │  Command terminal  │
-│                    │                    │
-└────────────────────┴────────────────────┘
+│      eks-node-viewer (compact)          │
+│  (node utilization bars + costs)        │
+├──────────────┬──────────────────────────┤
+│              │                          │
+│  k9s (pods)  │    Command terminal      │
+│              │    (wider, for output)    │
+│              │                          │
+└──────────────┴──────────────────────────┘
 ```
 
 Then open the CloudWatch dashboard in a browser (URL printed during `terraform apply` or by running `./cloudwatch/deploy-dashboard.sh`).

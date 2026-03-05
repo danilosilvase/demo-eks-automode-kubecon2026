@@ -49,41 +49,27 @@ echo "Session:   ${SESSION}"
 echo ""
 
 # --- Create tmux session ---
-# Pane 0: eks-node-viewer (top, full width)
-tmux new-session -d -s "${SESSION}" -x 200 -y 50 \
+# Pane 0: eks-node-viewer (top, full width — compact, only needs ~10 lines)
+tmux new-session -d -s "${SESSION}" -x 220 -y 60 \
   "eks-node-viewer --kubeconfig ~/.kube/config --node-sort=creation --extra-labels karpenter.sh/capacity-type 2>&1 || { echo 'eks-node-viewer exited. Press Enter to close.'; read; }"
 
 # Split bottom half horizontally
-# Pane 1: k9s (bottom-left)
+# Pane 1: k9s (bottom-left — narrower, pod list doesn't need much width)
 tmux split-window -v -t "${SESSION}:0" \
   "k9s --namespace ${NAMESPACE} --command pods 2>&1 || { echo 'k9s exited. Press Enter to close.'; read; }"
 
-# Pane 2: Command terminal (bottom-right)
-tmux split-window -h -t "${SESSION}:0.1" \
+# Pane 2: Command terminal (bottom-right — wider for demo commands output)
+tmux split-window -h -t "${SESSION}:0.1" -l 60% \
   "echo ''; \
-   echo '╔══════════════════════════════════════════════════════╗'; \
-   echo '║  EKS Auto Mode Demo — Command Terminal              ║'; \
-   echo '║                                                      ║'; \
-   echo '║  Cluster: ${CLUSTER_NAME}                            ║'; \
-   echo '║  Region:  ${REGION}                                  ║'; \
-   echo '║  NS:      ${NAMESPACE}                               ║'; \
-   echo '║                                                      ║'; \
-   echo '║  Quick commands:                                     ║'; \
-   echo '║    kubectl get nodes -o wide                         ║'; \
-   echo '║    kubectl get pods -n ${NAMESPACE} -o wide          ║'; \
-   echo '║    kubectl get nodepools                             ║'; \
-   echo '║                                                      ║'; \
-   echo '║  CloudWatch dashboard:                               ║'; \
-   echo '║    Open browser to the URL printed by                ║'; \
-   echo '║    ./cloudwatch/deploy-dashboard.sh                  ║'; \
-   echo '╚══════════════════════════════════════════════════════╝'; \
+   echo '  EKS Auto Mode Demo — Command Terminal'; \
+   echo '  Cluster: ${CLUSTER_NAME} | Region: ${REGION}'; \
+   echo '  Run: ./scripts/demo-commands.sh'; \
    echo ''; \
    exec bash"
 
-# --- Layout: top pane gets 60% height ---
-tmux select-layout -t "${SESSION}:0" main-horizontal
-# Resize top pane to ~60%
-tmux resize-pane -t "${SESSION}:0.0" -y 30
+# --- Layout ---
+# eks-node-viewer only needs ~12 lines (header + a few nodes)
+tmux resize-pane -t "${SESSION}:0.0" -y 14
 
 # Select the command terminal pane
 tmux select-pane -t "${SESSION}:0.2"
