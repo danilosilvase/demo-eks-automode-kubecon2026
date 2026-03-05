@@ -66,11 +66,20 @@ part2() {
   kubectl apply -f "${MANIFESTS_DIR}/03-compute-intensive-workload.yaml"
 
   echo ""
+  echo ">> Deploying memory-intensive workload (3Gi memory per pod)..."
+  kubectl apply -f "${MANIFESTS_DIR}/04-memory-intensive-workload.yaml"
+
+  echo ""
   echo ">> Watch eks-node-viewer (top pane) for new node provisioning..."
   echo ">> Watch k9s (bottom-left) for pods transitioning Pending → Running..."
   echo ""
-  echo ">> Waiting for pods to be ready (timeout 120s)..."
+  echo ">> Waiting for compute pods to be ready (timeout 120s)..."
   kubectl wait --for=condition=Ready pod -l app=compute-intensive \
+    -n "${NAMESPACE}" --timeout=120s 2>/dev/null || \
+    echo "   (some pods may still be starting)"
+
+  echo ">> Waiting for memory pods to be ready (timeout 120s)..."
+  kubectl wait --for=condition=Ready pod -l app=memory-intensive \
     -n "${NAMESPACE}" --timeout=120s 2>/dev/null || \
     echo "   (some pods may still be starting)"
 
@@ -97,8 +106,9 @@ part3() {
   echo ">> Current node count: ${NODE_BEFORE}"
   echo ""
 
-  echo ">> Scaling down compute-intensive workload to 0..."
+  echo ">> Scaling down compute-intensive and memory-intensive workloads to 0..."
   kubectl scale deployment compute-intensive --replicas=0 -n "${NAMESPACE}"
+  kubectl scale deployment memory-intensive --replicas=0 -n "${NAMESPACE}"
 
   echo ""
   echo ">> Auto Mode evaluates underutilization after 30s, then consolidates."
@@ -165,6 +175,7 @@ cleanup() {
   echo ">> Resetting deployments..."
   kubectl scale deployment sample-app --replicas=3 -n "${NAMESPACE}" 2>/dev/null || true
   kubectl scale deployment compute-intensive --replicas=0 -n "${NAMESPACE}" 2>/dev/null || true
+  kubectl scale deployment memory-intensive --replicas=0 -n "${NAMESPACE}" 2>/dev/null || true
 
   echo ">> Current state:"
   kubectl get pods -n "${NAMESPACE}"
