@@ -81,11 +81,12 @@ aws eks update-kubeconfig --region eu-central-1 --name eks-auto-demo
 ### 4. Deploy Applications
 
 ```bash
+kubectl apply -f manifests/00-cost-optimized-nodepool.yaml
 kubectl apply -f manifests/01-namespace.yaml
 kubectl apply -f manifests/02-sample-app.yaml
 ```
 
-Wait ~60 seconds for first node to provision.
+Wait ~60 seconds for first node to provision (should come up as Spot).
 
 ### 5. Launch Visual Demo
 

@@ -1,0 +1,43 @@
+# Custom NodePool with Spot + On-Demand for cost optimization demo.
+# The built-in general-purpose pool stays enabled (provides the default NodeClass)
+# but this pool has higher weight so Karpenter prefers it for scheduling.
+#
+# Reference: https://docs.aws.amazon.com/eks/latest/userguide/create-node-pool.html
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: cost-optimized
+spec:
+  # Higher weight means Karpenter prefers this pool over general-purpose (weight 50)
+  weight: 100
+  template:
+    metadata:
+      labels:
+        nodepool-type: cost-optimized
+    spec:
+      nodeClassRef:
+        group: eks.amazonaws.com
+        kind: NodeClass
+        name: default
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot", "on-demand"]
+        - key: eks.amazonaws.com/instance-category
+          operator: In
+          values: ["c", "m", "r"]
+        - key: eks.amazonaws.com/instance-generation
+          operator: Gt
+          values: ["4"]
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+      expireAfter: 336h
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 30s
+    budgets:
+      - nodes: "10%"
+  limits:
+    cpu: "100"
+    memory: 200Gi

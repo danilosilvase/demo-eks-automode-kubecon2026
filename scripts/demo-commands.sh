@@ -35,18 +35,19 @@ wait_prompt() {
 part1() {
   print_header "PART 1: Initial State & Spot Integration (2-3 min)"
 
-  echo ">> Current nodes:"
-  kubectl get nodes -L karpenter.sh/capacity-type,node.kubernetes.io/instance-type -o wide
+  echo ">> Current nodes (capacity type + instance type):"
+  kubectl get nodes -L karpenter.sh/capacity-type,karpenter.sh/nodepool,node.kubernetes.io/instance-type -o wide
   wait_prompt
 
   echo ">> Pods in ${NAMESPACE}:"
   kubectl get pods -n "${NAMESPACE}" -o wide
   wait_prompt
 
-  echo ">> NodePool configuration:"
+  echo ">> NodePools — notice the custom 'cost-optimized' pool with Spot:"
   kubectl get nodepools
   echo ""
-  kubectl describe nodepool general-purpose | head -40
+  echo ">> cost-optimized NodePool config (Spot + On-Demand):"
+  kubectl describe nodepool cost-optimized | head -45
   wait_prompt
 
   echo ">> Capacity type breakdown:"
@@ -54,7 +55,7 @@ part1() {
   echo "   Spot:      $(kubectl get nodes -l karpenter.sh/capacity-type=spot --no-headers 2>/dev/null | wc -l | tr -d ' ')"
 
   echo ""
-  echo "✓ Part 1 complete. Watch eks-node-viewer (top pane) for node details."
+  echo "✓ Part 1 complete. Watch eks-node-viewer (top pane) for Spot vs On-Demand."
 }
 
 # ─── Part 2: Intelligent Instance Selection ──────────────────────────────────
