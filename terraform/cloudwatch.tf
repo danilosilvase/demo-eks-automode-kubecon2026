@@ -23,6 +23,7 @@ resource "aws_cloudwatch_dashboard" "eks_demo" {
 
   dashboard_body = file("${path.module}/../cloudwatch/dashboard.json")
 
+
   depends_on = [aws_eks_addon.cloudwatch_observability]
 }
 
@@ -32,7 +33,7 @@ output "cloudwatch_dashboard_url" {
   value       = "https://${var.aws_region}.console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards/dashboard/EKS-AutoMode-Demo-${var.cluster_name}"
 }
 
-output "container_insights_addon_status" {
-  description = "Status of the CloudWatch observability addon"
-  value       = aws_eks_addon.cloudwatch_observability.status
+output "container_insights_addon_version" {
+  description = "Version of the CloudWatch observability addon"
+  value       = aws_eks_addon.cloudwatch_observability.addon_version
 }

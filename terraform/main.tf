@@ -19,7 +19,7 @@ locals {
 ################################################################################
 
 module "eks" {
-  source = "../terraform-aws-eks-module"
+  source = "../../terraform-aws-eks-module"
 
   name                   = local.name
   kubernetes_version     = var.kubernetes_version

@@ -2,14 +2,58 @@
 
 Demo showcasing EKS Auto Mode cost optimization features on Kubernetes 1.35.
 
+## Requirements
+
+### AWS Account & Permissions
+
+- An AWS account with permissions to create: EKS clusters, VPCs, NAT Gateways, IAM roles, CloudWatch dashboards, and EKS addons
+- AWS CLI configured and authenticated (`aws sts get-caller-identity` should succeed)
+- Sufficient service quotas in the target region (eu-central-1):
+  - EKS clusters: at least 1 available
+  - VPCs: at least 1 available
+  - Elastic IPs: at least 1 available (for NAT Gateway)
+  - EC2 instances: on-demand vCPU limit sufficient for demo workloads (~8 vCPUs)
+
+### CLI Tools
+
+| Tool | Min Version | Install |
+|------|-------------|---------|
+| AWS CLI | v2.x | [Install guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) |
+| Terraform | >= 1.0 | `brew install terraform` |
+| kubectl | >= 1.28 | `brew install kubectl` |
+| tmux | any | `brew install tmux` |
+| k9s | any | `brew install derailed/k9s/k9s` |
+| eks-node-viewer | any | `brew install aws/tap/eks-node-viewer` |
+| Homebrew | any | [brew.sh](https://brew.sh) (macOS) |
+
+Run `./scripts/setup-tools.sh` to check and install tmux, k9s, and eks-node-viewer automatically.
+
+### Local Environment
+
+- macOS or Linux (scripts use bash)
+- Internet access (Terraform providers, container images, CloudWatch API)
+- ~2 GB free disk space (Terraform provider cache)
+- A terminal that supports at least 200 columns wide (for the tmux layout)
+
+### Estimated Costs
+
+- EKS cluster: ~$0.10/hr
+- NAT Gateway: ~$0.045/hr + data transfer
+- EC2 nodes (Auto Mode managed): varies by instance type, typically 1-3 nodes during demo
+- CloudWatch Container Insights: ~$0.01/metric/month
+- Total for a 1-hour demo session: approximately $1-3 USD
+
+### Time Requirements
+
+| Phase | Duration |
+|-------|----------|
+| Tool installation | ~5 min (first time only) |
+| Cluster creation (`terraform apply`) | ~10 min |
+| Application deployment | ~2 min |
+| Live demo | 12-15 min |
+| Cleanup (`terraform destroy`) | ~4 min |
+
 ## Quick Start
-
-### Prerequisites
-
-- AWS CLI configured
-- Terraform >= 1.0
-- kubectl
-- tmux, k9s, eks-node-viewer (run `./scripts/setup-tools.sh` to install)
 
 ### 1. Install Visualization Tools
 
