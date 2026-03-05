@@ -66,21 +66,22 @@ kubectl get pods -n demo-app
 kubectl get nodepools
 ```
 **Timing:** <1 second
-**Output:** Shows `general-purpose` and `system` nodepools
+**Output:** Shows `cost-optimized`, `general-purpose` and `system` nodepools
 
 ```bash
-kubectl describe nodepool general-purpose
+kubectl describe nodepool cost-optimized
 ```
 **Timing:** <1 second
 **Key Information:**
-- Capacity Type: on-demand (default)
+- Weight: 100 (preferred over built-in pools)
+- Capacity Types: spot, on-demand (Karpenter prefers Spot)
 - Instance Families: c, m, r (compute, general, memory optimized)
 - Consolidation Policy: WhenEmptyOrUnderutilized
 - Consolidate After: 30s
 
 ### Talking Points
 - Auto Mode automatically provisions nodes based on workload requirements
-- Default uses on-demand instances, but Spot can be configured
+- Custom NodePool enables Spot with on-demand fallback
 - No manual node management required
 - Consolidation happens automatically after 30 seconds of underutilization
 
@@ -94,15 +95,27 @@ kubectl apply -f manifests/03-compute-intensive-workload.yaml
 ```
 **Timings:**
 - Command execution: <2 seconds
-- Second node provisioning: ~45-60 seconds
+- Node provisioning: ~45-60 seconds
 - Pods ready: ~75 seconds total
 
 **Workload Details:**
-- 2 replicas
-- 2 CPU cores per pod (4 cores total)
-- 512Mi memory per pod
+- 2 replicas, 2 CPU cores per pod (4 cores total), 512Mi memory
+- High CPU-to-memory ratio → c-family instance selected
 
-**Result:** Auto Mode provisions a 2nd node to handle the compute requirements
+### Deploy Memory-Intensive Workload
+```bash
+kubectl apply -f manifests/04-memory-intensive-workload.yaml
+```
+**Timings:**
+- Command execution: <2 seconds
+- Node provisioning: ~45-60 seconds
+- Pods ready: ~75 seconds total
+
+**Workload Details:**
+- 2 replicas, 250m CPU per pod, 8Gi memory per pod
+- High memory-to-CPU ratio → r-family instance selected
+
+**Result:** Auto Mode provisions c-family node for compute, r-family node for memory
 
 ### View Pod Distribution
 ```bash
@@ -119,8 +132,9 @@ kubectl get nodes -o wide
 **Output:** Shows 2 nodes with instance types selected by Auto Mode
 
 ### Talking Points
-- Auto Mode analyzes CPU/memory requirements
-- Automatically selects appropriate instance type from c, m, r families
+- Auto Mode analyzes CPU/memory requirements independently
+- Compute workload → c-family (compute-optimized) instance
+- Memory workload → r-family (memory-optimized) instance
 - Provisions new capacity in under 60 seconds
 - No manual instance type configuration needed
 
@@ -134,11 +148,12 @@ kubectl get nodes
 kubectl get pods -n demo-app
 ```
 **Timing:** <1 second each
-**State:** 2 nodes, 5 pods running (3 sample-app + 2 compute-intensive)
+**State:** 2-3 nodes, 7+ pods running (3 sample-app + 2 compute-intensive + 2 memory-intensive)
 
-### Scale Down Compute Workload
+### Scale Down Compute and Memory Workloads
 ```bash
 kubectl scale deployment compute-intensive --replicas=0 -n demo-app
+kubectl scale deployment memory-intensive --replicas=0 -n demo-app
 ```
 **Timings:**
 - Command execution: <1 second

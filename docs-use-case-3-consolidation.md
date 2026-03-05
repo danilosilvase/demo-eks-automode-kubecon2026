@@ -9,16 +9,17 @@ Reduce idle capacity costs by 40-60% through automatic workload consolidation du
 ```bash
 kubectl get nodes
 ```
-Expected: 2 nodes running
+Expected: 2-3 nodes running (c-family for compute, r-family for memory)
 
 ```bash
 kubectl get pods -n demo-app
 ```
-Expected: 5 pods running (3 sample-app + 2 compute-intensive)
+Expected: 7+ pods running (3 sample-app + 2 compute-intensive + 2 memory-intensive)
 
-### Step 2: Scale Down Compute Workload
+### Step 2: Scale Down Compute and Memory Workloads
 ```bash
 kubectl scale deployment compute-intensive --replicas=0 -n demo-app
+kubectl scale deployment memory-intensive --replicas=0 -n demo-app
 ```
 
 This simulates low-traffic period or workload completion
