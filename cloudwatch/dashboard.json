@@ -1,0 +1,206 @@
+{
+  "widgets": [
+    {
+      "height": 3,
+      "width": 24,
+      "y": 0,
+      "x": 0,
+      "type": "text",
+      "properties": {
+        "markdown": "# EKS Auto Mode — KubeCon 2026 Demo Dashboard\nReal-time cluster metrics for **eks-auto-demo** | Region: **eu-central-1**"
+      }
+    },
+    {
+      "height": 6,
+      "width": 8,
+      "y": 3,
+      "x": 0,
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "ContainerInsights", "node_count", "ClusterName", "eks-auto-demo", { "stat": "Maximum", "label": "Node Count" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "eu-central-1",
+        "title": "📊 Node Count Over Time",
+        "period": 10,
+        "yAxis": { "left": { "min": 0 } },
+        "annotations": {
+          "horizontal": [
+            { "label": "Baseline", "value": 1, "color": "#2ca02c" }
+          ]
+        }
+      }
+    },
+    {
+      "height": 6,
+      "width": 8,
+      "y": 3,
+      "x": 8,
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "ContainerInsights", "pod_number_of_running_pods", "ClusterName", "eks-auto-demo", "Namespace", "demo-app", { "stat": "Maximum", "label": "Running Pods" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "eu-central-1",
+        "title": "🚀 Pod Count (demo-app)",
+        "period": 10,
+        "yAxis": { "left": { "min": 0 } }
+      }
+    },
+    {
+      "height": 6,
+      "width": 8,
+      "y": 3,
+      "x": 16,
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "ContainerInsights", "pod_number_of_container_restarts", "ClusterName", "eks-auto-demo", "Namespace", "demo-app", { "stat": "Sum", "label": "Restarts" } ]
+        ],
+        "view": "singleValue",
+        "region": "eu-central-1",
+        "title": "⚠️ Pod Restarts",
+        "period": 60
+      }
+    },
+    {
+      "height": 6,
+      "width": 12,
+      "y": 9,
+      "x": 0,
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "ContainerInsights", "node_cpu_utilization", "ClusterName", "eks-auto-demo", { "stat": "Average", "label": "CPU Utilization %" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "eu-central-1",
+        "title": "🔥 Cluster CPU Utilization",
+        "period": 10,
+        "yAxis": { "left": { "min": 0, "max": 100 } },
+        "annotations": {
+          "horizontal": [
+            { "label": "High", "value": 80, "color": "#d62728" },
+            { "label": "Target", "value": 60, "color": "#ff7f0e" }
+          ]
+        }
+      }
+    },
+    {
+      "height": 6,
+      "width": 12,
+      "y": 9,
+      "x": 12,
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "ContainerInsights", "node_memory_utilization", "ClusterName", "eks-auto-demo", { "stat": "Average", "label": "Memory Utilization %" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "eu-central-1",
+        "title": "💾 Cluster Memory Utilization",
+        "period": 10,
+        "yAxis": { "left": { "min": 0, "max": 100 } },
+        "annotations": {
+          "horizontal": [
+            { "label": "High", "value": 80, "color": "#d62728" },
+            { "label": "Target", "value": 60, "color": "#ff7f0e" }
+          ]
+        }
+      }
+    },
+    {
+      "height": 6,
+      "width": 12,
+      "y": 15,
+      "x": 0,
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "ContainerInsights", "node_cpu_reserved_capacity", "ClusterName", "eks-auto-demo", { "stat": "Average", "label": "CPU Reserved %" } ],
+          [ "ContainerInsights", "node_cpu_utilization", "ClusterName", "eks-auto-demo", { "stat": "Average", "label": "CPU Used %" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "eu-central-1",
+        "title": "📈 CPU: Reserved vs Used (Right-Sizing)",
+        "period": 10,
+        "yAxis": { "left": { "min": 0, "max": 100 } }
+      }
+    },
+    {
+      "height": 6,
+      "width": 12,
+      "y": 15,
+      "x": 12,
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "ContainerInsights", "node_memory_reserved_capacity", "ClusterName", "eks-auto-demo", { "stat": "Average", "label": "Memory Reserved %" } ],
+          [ "ContainerInsights", "node_memory_utilization", "ClusterName", "eks-auto-demo", { "stat": "Average", "label": "Memory Used %" } ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "eu-central-1",
+        "title": "📈 Memory: Reserved vs Used (Right-Sizing)",
+        "period": 10,
+        "yAxis": { "left": { "min": 0, "max": 100 } }
+      }
+    },
+    {
+      "height": 6,
+      "width": 8,
+      "y": 21,
+      "x": 0,
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "ContainerInsights", "node_count", "ClusterName", "eks-auto-demo", { "stat": "Maximum" } ]
+        ],
+        "view": "singleValue",
+        "region": "eu-central-1",
+        "title": "🖥️ Current Nodes",
+        "period": 10
+      }
+    },
+    {
+      "height": 6,
+      "width": 8,
+      "y": 21,
+      "x": 8,
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "ContainerInsights", "namespace_number_of_running_pods", "ClusterName", "eks-auto-demo", "Namespace", "demo-app", { "stat": "Maximum" } ]
+        ],
+        "view": "singleValue",
+        "region": "eu-central-1",
+        "title": "🏃 Running Pods (demo-app)",
+        "period": 10
+      }
+    },
+    {
+      "height": 6,
+      "width": 8,
+      "y": 21,
+      "x": 16,
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "ContainerInsights", "node_cpu_utilization", "ClusterName", "eks-auto-demo", { "stat": "Average" } ]
+        ],
+        "view": "gauge",
+        "region": "eu-central-1",
+        "title": "⚡ CPU Utilization Gauge",
+        "period": 10,
+        "yAxis": { "left": { "min": 0, "max": 100 } }
+      }
+    }
+  ]
+}
