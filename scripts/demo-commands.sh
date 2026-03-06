@@ -212,16 +212,35 @@ step_scaling() {
 step_cleanup() {
   print_header "Cleanup / Reset"
 
-  echo ">> Resetting to initial state (3 sample-app pods)..."
-  kubectl scale deployment sample-app --replicas=3 -n "${NAMESPACE}" 2>/dev/null || true
+  echo ">> Scaling all workloads to zero..."
   kubectl scale deployment compute-intensive --replicas=0 -n "${NAMESPACE}" 2>/dev/null || true
   kubectl scale deployment memory-intensive --replicas=0 -n "${NAMESPACE}" 2>/dev/null || true
+  kubectl scale deployment sample-app --replicas=0 -n "${NAMESPACE}" 2>/dev/null || true
 
-  echo ">> Waiting for consolidation..."
-  sleep 10
-  kubectl get pods -n "${NAMESPACE}"
+  echo ">> Removing cost-optimized NodePool..."
+  kubectl delete nodepool cost-optimized 2>/dev/null || true
+
+  echo ">> Waiting for pods to terminate..."
+  sleep 5
+  kubectl get pods -n "${NAMESPACE}" --no-headers 2>/dev/null | wc -l | xargs -I{} echo "   Remaining pods: {}"
+
+  echo ">> Waiting for nodes to consolidate (up to 2 min)..."
+  for i in $(seq 1 12); do
+    sleep 10
+    NODES=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')
+    echo "   [${i}0s] Nodes: ${NODES}"
+    if [ "${NODES}" -le 1 ]; then
+      break
+    fi
+  done
+
   echo ""
-  echo "✓ Reset complete."
+  echo ">> Final state:"
+  kubectl get nodes 2>/dev/null || echo "   No nodes (cluster idle)"
+  kubectl get pods -n "${NAMESPACE}" 2>/dev/null || echo "   No pods"
+
+  echo ""
+  echo "✓ Reset complete. Run step 1 to start the demo fresh."
 }
 
 # ─── Menu ────────────────────────────────────────────────────────────────────
