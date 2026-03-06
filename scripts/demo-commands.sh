@@ -153,59 +153,92 @@ step_consolidation() {
   kubectl scale deployment compute-intensive --replicas=0 -n "${NAMESPACE}"
   kubectl scale deployment memory-intensive --replicas=0 -n "${NAMESPACE}"
 
+  CONSOLIDATION_START=$(date +%s)
   echo ""
-  echo ">> Karpenter evaluates underutilization after 30s, then consolidates."
-  echo ">> Watch eks-node-viewer — nodes will drain and disappear."
+  echo ">> ⏱  Timer started. Waiting for node removal..."
 
-  for i in $(seq 1 12); do
-    sleep 10
+  for i in $(seq 1 24); do
+    sleep 5
+    NOW=$(date +%s)
+    ELAPSED=$(( NOW - CONSOLIDATION_START ))
     CURRENT=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
-    echo "   [${i}0s] Nodes: ${CURRENT}"
+    printf "   [%3ds] Nodes: %s\n" "${ELAPSED}" "${CURRENT}"
     if [ "${CURRENT}" -lt "${NODE_BEFORE}" ]; then
-      echo "   ✓ Consolidation detected."
+      echo ""
+      echo "   ✓ Node removed in ${ELAPSED}s"
       break
     fi
   done
 
-  echo ""
+  # Wait for full consolidation
+  for i in $(seq 1 12); do
+    CURRENT=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
+    if [ "${CURRENT}" -le 1 ]; then break; fi
+    sleep 5
+    NOW=$(date +%s)
+    ELAPSED=$(( NOW - CONSOLIDATION_START ))
+    printf "   [%3ds] Nodes: %s\n" "${ELAPSED}" "${CURRENT}"
+  done
+
+  NOW=$(date +%s)
+  TOTAL=$(( NOW - CONSOLIDATION_START ))
   NODE_AFTER=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
-  echo ">> Nodes: ${NODE_BEFORE} → ${NODE_AFTER}"
+
+  echo ""
+  echo ">> Nodes: ${NODE_BEFORE} → ${NODE_AFTER}  (${TOTAL}s total)"
   kubectl get pods -n "${NAMESPACE}" -o wide
 
   echo ""
-  echo "✓ Workloads consolidated to fewer nodes automatically."
+  echo "✓ Consolidated in ${TOTAL}s."
 }
 
 # ─── 6. Sub-minute scaling ───────────────────────────────────────────────────
 step_scaling() {
   print_header "Sub-minute scaling"
 
-  echo ">> Current state:"
-  kubectl get nodes --no-headers | wc -l | xargs -I{} echo "   Nodes: {}"
-  kubectl get pods -n "${NAMESPACE}" --no-headers | wc -l | xargs -I{} echo "   Pods:  {}"
+  NODES_BEFORE=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
+  PODS_BEFORE=$(kubectl get pods -n "${NAMESPACE}" --no-headers | wc -l | tr -d ' ')
+  echo ">> Current state: ${NODES_BEFORE} node(s), ${PODS_BEFORE} pod(s)"
   wait_prompt
 
-  echo ">> Scaling sample-app to 30 replicas (will exceed current node capacity)..."
-  START=$(date +%s)
+  echo ">> Scaling sample-app to 30 replicas..."
+  SCALE_START=$(date +%s)
   kubectl scale deployment sample-app --replicas=30 -n "${NAMESPACE}"
 
   echo ""
-  echo ">> Watch eks-node-viewer — new node provisioned in under 60 seconds."
-  echo ">> Waiting for all pods to be ready..."
+  echo ">> ⏱  Timer started. Waiting for new node..."
+
+  # Wait for new node
+  for i in $(seq 1 24); do
+    sleep 5
+    NOW=$(date +%s)
+    ELAPSED=$(( NOW - SCALE_START ))
+    CURRENT_NODES=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
+    READY_PODS=$(kubectl get pods -n "${NAMESPACE}" -l app=sample-app --no-headers 2>/dev/null | grep -c Running || echo 0)
+    printf "   [%3ds] Nodes: %s  Pods running: %s/30\n" "${ELAPSED}" "${CURRENT_NODES}" "${READY_PODS}"
+    if [ "${CURRENT_NODES}" -gt "${NODES_BEFORE}" ]; then
+      echo ""
+      echo "   ✓ New node provisioned in ${ELAPSED}s"
+      break
+    fi
+  done
+
+  # Wait for all pods
+  echo ""
+  echo ">> Waiting for all 30 pods to be ready..."
   kubectl wait --for=condition=Ready pod -l app=sample-app \
     -n "${NAMESPACE}" --timeout=180s 2>/dev/null || true
 
-  END=$(date +%s)
-  ELAPSED=$((END - START))
+  NOW=$(date +%s)
+  TOTAL=$(( NOW - SCALE_START ))
+  NODES_AFTER=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
 
   echo ""
-  echo ">> All pods ready in ${ELAPSED} seconds."
+  echo ">> Nodes: ${NODES_BEFORE} → ${NODES_AFTER}  |  All 30 pods ready in ${TOTAL}s"
   kubectl get nodes -L karpenter.sh/capacity-type,node.kubernetes.io/instance-type
-  echo ""
-  kubectl get pods -n "${NAMESPACE}" --no-headers | wc -l | xargs -I{} echo "   Running pods: {}"
 
   echo ""
-  echo "✓ Sub-minute scaling — new capacity provisioned in under 60s."
+  echo "✓ Sub-minute scaling — ${TOTAL}s total."
 }
 
 # ─── Cleanup ─────────────────────────────────────────────────────────────────
