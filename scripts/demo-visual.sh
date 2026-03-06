@@ -68,8 +68,8 @@ tmux split-window -h -t "${SESSION}:0.1" -l 60% \
    exec bash"
 
 # --- Layout ---
-# eks-node-viewer only needs ~12 lines (header + a few nodes)
-tmux resize-pane -t "${SESSION}:0.0" -y 14
+# eks-node-viewer only needs ~8 lines (header + a few nodes)
+tmux resize-pane -t "${SESSION}:0.0" -y 8
 
 # Select the command terminal pane
 tmux select-pane -t "${SESSION}:0.2"
