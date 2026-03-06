@@ -49,9 +49,10 @@ echo "Session:   ${SESSION}"
 echo ""
 
 # --- Create tmux session ---
-# Pane 0: eks-node-viewer (top, full width — compact, only needs ~10 lines)
+# Pane 0: eks-node-viewer (top, full width)
+# Wrapped in a loop so it restarts if it crashes (known bug with 0 nodes)
 tmux new-session -d -s "${SESSION}" -x 220 -y 60 \
-  "eks-node-viewer --kubeconfig ~/.kube/config --node-sort=creation --extra-labels karpenter.sh/capacity-type 2>&1 || { echo 'eks-node-viewer exited. Press Enter to close.'; read; }"
+  "while true; do eks-node-viewer --kubeconfig ~/.kube/config --node-sort=creation --extra-labels karpenter.sh/capacity-type 2>/dev/null; echo 'eks-node-viewer restarting in 3s...'; sleep 3; done"
 
 # Split bottom half horizontally
 # Pane 1: k9s (bottom-left — narrower, pod list doesn't need much width)
@@ -68,8 +69,8 @@ tmux split-window -h -t "${SESSION}:0.1" -l 60% \
    exec bash"
 
 # --- Layout ---
-# eks-node-viewer needs ~12 lines (header + nodes + controls)
-tmux resize-pane -t "${SESSION}:0.0" -y 12
+# eks-node-viewer needs ~14 lines minimum to avoid TUI crash
+tmux resize-pane -t "${SESSION}:0.0" -y 14
 
 # Select the command terminal pane
 tmux select-pane -t "${SESSION}:0.2"
