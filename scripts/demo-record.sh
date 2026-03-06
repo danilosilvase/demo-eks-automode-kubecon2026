@@ -78,16 +78,30 @@ echo ""
 echo "  Starting EKS Auto Mode demo recording in 3 seconds..."
 sleep 3
 
-# ─── Step 1: Simple workload ────────────────────────────────────────────────
-header "1. Deploy a simple workload"
+# ─── Step 1: Zero-config provisioning ───────────────────────────────────────
+header "1. Zero-config provisioning"
 
 run "kubectl apply -f ${MANIFESTS_DIR}/01-namespace.yaml"
+
+PROVISION_START=$(date +%s)
 run "kubectl apply -f ${MANIFESTS_DIR}/02-sample-app.yaml"
 
 echo ""
-echo "  Waiting for node and pods..."
-kubectl wait --for=condition=Ready pod -l app=sample-app \
-  -n "${NAMESPACE}" --timeout=120s 2>/dev/null || true
+echo "  ⏱  Timer started. Waiting for node and pods..."
+
+for i in $(seq 1 24); do
+  sleep 5
+  NOW=$(date +%s)
+  ELAPSED=$(( NOW - PROVISION_START ))
+  NODES=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')
+  READY=$(kubectl get pods -n ${NAMESPACE} -l app=sample-app --no-headers 2>/dev/null | grep -c Running || echo 0)
+  printf "    [%3ds] Nodes: %s  Pods running: %s/3\n" "${ELAPSED}" "${NODES}" "${READY}"
+  if [ "${READY}" -ge 3 ]; then
+    echo ""
+    echo "    ✓ Node provisioned and all pods ready in ${ELAPSED}s"
+    break
+  fi
+done
 
 pause 3
 
@@ -98,7 +112,7 @@ pause 3
 run "kubectl get pods -n ${NAMESPACE} -o wide"
 
 echo ""
-echo "  ✓ Auto Mode provisioned a node and scheduled pods — zero config."
+echo "  ✓ Zero config — Auto Mode handled everything."
 pause
 
 # ─── Step 2: Spot NodePool ──────────────────────────────────────────────────

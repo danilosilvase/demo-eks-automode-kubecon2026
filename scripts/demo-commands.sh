@@ -24,19 +24,32 @@ wait_prompt() {
   echo ""
 }
 
-# ─── 1. Deploy a simple workload ─────────────────────────────────────────────
+# ─── 1. Zero-config provisioning ─────────────────────────────────────────────
 step_simple_workload() {
-  print_header "Deploy a simple workload"
+  print_header "Zero-config provisioning"
 
   echo ">> Creating namespace and deploying sample app (3 replicas)..."
   kubectl apply -f "${MANIFESTS_DIR}/01-namespace.yaml"
+
+  PROVISION_START=$(date +%s)
   kubectl apply -f "${MANIFESTS_DIR}/02-sample-app.yaml"
 
   echo ""
-  echo ">> Auto Mode provisions a node automatically — watch the top pane."
-  echo ">> Waiting for pods to be ready..."
-  kubectl wait --for=condition=Ready pod -l app=sample-app \
-    -n "${NAMESPACE}" --timeout=120s 2>/dev/null || true
+  echo ">> ⏱  Timer started. Waiting for node and pods..."
+
+  for i in $(seq 1 24); do
+    sleep 5
+    NOW=$(date +%s)
+    ELAPSED=$(( NOW - PROVISION_START ))
+    NODES=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')
+    READY=$(kubectl get pods -n "${NAMESPACE}" -l app=sample-app --no-headers 2>/dev/null | grep -c Running || echo 0)
+    printf "   [%3ds] Nodes: %s  Pods running: %s/3\n" "${ELAPSED}" "${NODES}" "${READY}"
+    if [ "${READY}" -ge 3 ]; then
+      echo ""
+      echo "   ✓ Node provisioned and all pods ready in ${ELAPSED}s"
+      break
+    fi
+  done
 
   echo ""
   echo ">> Cluster state:"
@@ -266,7 +279,7 @@ step_cleanup() {
 # ─── Menu ────────────────────────────────────────────────────────────────────
 show_menu() {
   echo ""
-  echo "  1:workload  2:spot  3:cpu  4:memory  5:consolidate  6:scale  c:clean  q:quit"
+  echo "  1:provision  2:spot  3:cpu  4:memory  5:consolidate  6:scale  c:clean  q:quit"
   echo ""
 }
 
@@ -282,7 +295,7 @@ if [ -z "$1" ]; then
       4) step_memory_workload; echo ""; echo "  next: 5:consolidate  c:clean" ;;
       5) step_consolidation; echo ""; echo "  next: 6:scale  c:clean" ;;
       6) step_scaling; echo ""; echo "  c:clean  q:quit" ;;
-      c|C) step_cleanup; echo ""; echo "  next: 1:workload" ;;
+      c|C) step_cleanup; echo ""; echo "  next: 1:provision" ;;
       q|Q) exit 0 ;;
       ""|n|N) ;; # enter/n shows nothing, just re-prompt
       h|H|help) show_menu ;;
@@ -291,7 +304,7 @@ if [ -z "$1" ]; then
   done
 else
   case $1 in
-    1|simple) step_simple_workload ;;
+    1|provision) step_simple_workload ;;
     2|spot) step_spot_nodepool ;;
     3|cpu) step_cpu_workload ;;
     4|memory) step_memory_workload ;;
