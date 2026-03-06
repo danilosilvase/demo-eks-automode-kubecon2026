@@ -243,12 +243,12 @@ if [ -z "$1" ]; then
   while true; do
     read -p "  >> " choice
     case $choice in
-      1) step_simple_workload; echo ""; echo "  next: 2:spot" ;;
-      2) step_spot_nodepool; echo ""; echo "  next: 3:cpu" ;;
-      3) step_cpu_workload; echo ""; echo "  next: 4:memory" ;;
-      4) step_memory_workload; echo ""; echo "  next: 5:consolidate" ;;
-      5) step_consolidation; echo ""; echo "  next: 6:scale" ;;
-      6) step_scaling ;;
+      1) step_simple_workload; echo ""; echo "  next: 2:spot  c:clean" ;;
+      2) step_spot_nodepool; echo ""; echo "  next: 3:cpu  c:clean" ;;
+      3) step_cpu_workload; echo ""; echo "  next: 4:memory  c:clean" ;;
+      4) step_memory_workload; echo ""; echo "  next: 5:consolidate  c:clean" ;;
+      5) step_consolidation; echo ""; echo "  next: 6:scale  c:clean" ;;
+      6) step_scaling; echo ""; echo "  c:clean  q:quit" ;;
       c|C) step_cleanup; echo ""; echo "  next: 1:workload" ;;
       q|Q) exit 0 ;;
       ""|n|N) ;; # enter/n shows nothing, just re-prompt
