@@ -69,6 +69,32 @@ aws eks update-kubeconfig --region eu-central-1 --name eks-auto-demo
 ./scripts/demo-visual.sh
 ```
 
+Or set up manually:
+
+```bash
+# Terminal 1: eks-node-viewer
+eks-node-viewer --node-sort=creation --extra-labels karpenter.sh/capacity-type
+
+# Terminal 2: k9s
+k9s --namespace demo-app --command pods
+
+# Terminal 3: demo commands
+cd /path/to/demo-eks-automode-kubecon2026
+./scripts/demo-commands.sh
+```
+
+If using tmux manually:
+
+```bash
+tmux new-session -s eks-demo
+# Ctrl+B then " to split horizontally
+# Ctrl+B then % to split vertically
+# Ctrl+B then arrow keys to navigate panes
+# Run each tool in its own pane
+```
+
+Re-attach to an existing session: `tmux attach-session -t eks-demo`
+
 Opens a tmux session:
 
 ```
