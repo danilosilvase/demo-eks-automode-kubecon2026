@@ -212,37 +212,22 @@ step_scaling() {
 step_cleanup() {
   print_header "Cleanup / Reset"
 
-  echo ">> Deleting workloads..."
-  kubectl delete deployment compute-intensive -n "${NAMESPACE}" 2>/dev/null || true
-  kubectl delete deployment memory-intensive -n "${NAMESPACE}" 2>/dev/null || true
-  kubectl delete deployment sample-app -n "${NAMESPACE}" 2>/dev/null || true
-  kubectl delete service sample-app -n "${NAMESPACE}" 2>/dev/null || true
+  echo ">> Deleting demo-app namespace (removes all workloads)..."
+  kubectl delete namespace "${NAMESPACE}" --wait=false 2>/dev/null || true
 
   echo ">> Removing cost-optimized NodePool..."
   kubectl delete nodepool cost-optimized 2>/dev/null || true
 
-  echo ">> Waiting for pods to terminate..."
-  kubectl wait --for=delete pod -l app=sample-app -n "${NAMESPACE}" --timeout=30s 2>/dev/null || true
-  kubectl wait --for=delete pod -l app=compute-intensive -n "${NAMESPACE}" --timeout=30s 2>/dev/null || true
-  kubectl wait --for=delete pod -l app=memory-intensive -n "${NAMESPACE}" --timeout=30s 2>/dev/null || true
-
-  echo ">> Waiting for nodes to drain (up to 2 min)..."
+  echo ">> Waiting for nodes to drain..."
   for i in $(seq 1 12); do
     sleep 10
     NODES=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')
     echo "   [${i}0s] Nodes: ${NODES}"
-    if [ "${NODES}" -eq 0 ]; then
-      break
-    fi
+    if [ "${NODES}" -eq 0 ]; then break; fi
   done
 
   echo ""
-  echo ">> Final state:"
-  kubectl get nodes 2>/dev/null || echo "   No nodes"
-  kubectl get deployments -n "${NAMESPACE}" 2>/dev/null || echo "   No deployments"
-
-  echo ""
-  echo "✓ Fully reset. Run step 1 to start the demo fresh."
+  echo "✓ Fully reset. Run step 1 to start fresh."
 }
 
 # ─── Menu ────────────────────────────────────────────────────────────────────
