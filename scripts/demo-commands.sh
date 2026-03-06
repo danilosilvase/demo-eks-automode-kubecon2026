@@ -233,36 +233,27 @@ step_cleanup() {
 # ─── Menu ────────────────────────────────────────────────────────────────────
 show_menu() {
   echo ""
-  echo "  ┌────────────────────────────────────────┐"
-  echo "  │  EKS Auto Mode Demo                    │"
-  echo "  ├────────────────────────────────────────┤"
-  echo "  │  1) Simple workload                    │"
-  echo "  │  2) Spot NodePool                      │"
-  echo "  │  3) CPU-intensive workload             │"
-  echo "  │  4) Memory-intensive workload          │"
-  echo "  │  5) Consolidation                      │"
-  echo "  │  6) Sub-minute scaling                 │"
-  echo "  │  c) Cleanup / Reset                    │"
-  echo "  │  q) Quit                               │"
-  echo "  └────────────────────────────────────────┘"
+  echo "  1:workload  2:spot  3:cpu  4:memory  5:consolidate  6:scale  c:clean  q:quit"
   echo ""
 }
 
 # ─── Main ────────────────────────────────────────────────────────────────────
 if [ -z "$1" ]; then
+  show_menu
   while true; do
-    show_menu
-    read -p "  Choice: " choice
+    read -p "  >> " choice
     case $choice in
-      1) step_simple_workload ;;
-      2) step_spot_nodepool ;;
-      3) step_cpu_workload ;;
-      4) step_memory_workload ;;
-      5) step_consolidation ;;
+      1) step_simple_workload; echo ""; echo "  next: 2:spot" ;;
+      2) step_spot_nodepool; echo ""; echo "  next: 3:cpu" ;;
+      3) step_cpu_workload; echo ""; echo "  next: 4:memory" ;;
+      4) step_memory_workload; echo ""; echo "  next: 5:consolidate" ;;
+      5) step_consolidation; echo ""; echo "  next: 6:scale" ;;
       6) step_scaling ;;
-      c|C) step_cleanup ;;
+      c|C) step_cleanup; echo ""; echo "  next: 1:workload" ;;
       q|Q) exit 0 ;;
-      *) echo "  Invalid choice." ;;
+      ""|n|N) ;; # enter/n shows nothing, just re-prompt
+      h|H|help) show_menu ;;
+      *) echo "  ?  h for help" ;;
     esac
   done
 else
