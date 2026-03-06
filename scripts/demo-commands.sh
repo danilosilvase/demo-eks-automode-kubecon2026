@@ -36,8 +36,7 @@ step_simple_workload() {
   kubectl apply -f "${MANIFESTS_DIR}/02-sample-app.yaml"
 
   echo ""
-  echo ">> ⏱  Timer started. Waiting for node and pods..."
-
+  echo ">> ⏱ Waiting for node and pods..."
   for i in $(seq 1 24); do
     sleep 5
     NOW=$(date +%s)
@@ -53,7 +52,6 @@ step_simple_workload() {
   done
 
   echo ""
-  echo ">> Cluster state:"
   kubectl get nodes -L karpenter.sh/capacity-type,karpenter.sh/nodepool,node.kubernetes.io/instance-type
   echo ""
   kubectl get pods -n "${NAMESPACE}" -o wide
@@ -74,21 +72,16 @@ step_spot_nodepool() {
   kubectl apply -f "${MANIFESTS_DIR}/00-cost-optimized-nodepool.yaml"
 
   echo ""
-  echo ">> NodePools now:"
   kubectl get nodepools
   echo ""
-  echo ">> cost-optimized config:"
   kubectl describe nodepool cost-optimized | grep -A20 "Spec:" | head -25
   wait_prompt
 
-  echo ">> Karpenter will consolidate existing on-demand nodes to Spot."
-  echo ">> Watch eks-node-viewer — nodes will transition to Spot."
-  echo ""
-
-  for i in $(seq 1 9); do
-    sleep 10
+  echo ">> ⏱ Waiting for Spot node..."
+  for i in $(seq 1 18); do
+    sleep 5
     SPOT=$(kubectl get nodes -l karpenter.sh/capacity-type=spot --no-headers 2>/dev/null | wc -l | tr -d ' ')
-    echo "   [${i}0s] Spot nodes: ${SPOT}"
+    echo "   [$(( i * 5 ))s] Spot nodes: ${SPOT}"
     if [ "${SPOT}" -gt 0 ]; then
       echo "   ✓ Spot node detected."
       break
@@ -108,17 +101,26 @@ step_spot_nodepool() {
 step_cpu_workload() {
   print_header "CPU-intensive workload"
 
+  CPU_START=$(date +%s)
   echo ">> Deploying compute-intensive workload (2 CPU cores per pod, 2 replicas)..."
   kubectl apply -f "${MANIFESTS_DIR}/03-compute-intensive-workload.yaml"
 
   echo ""
-  echo ">> Watch eks-node-viewer — Karpenter selects a c-family instance."
-  echo ">> Waiting for pods..."
-  kubectl wait --for=condition=Ready pod -l app=compute-intensive \
-    -n "${NAMESPACE}" --timeout=120s 2>/dev/null || true
+  echo ">> ⏱ Waiting for c-family instance..."
+  for i in $(seq 1 24); do
+    sleep 5
+    NOW=$(date +%s)
+    ELAPSED=$(( NOW - CPU_START ))
+    READY=$(kubectl get pods -n "${NAMESPACE}" -l app=compute-intensive --no-headers 2>/dev/null | grep -c Running || echo 0)
+    printf "   [%3ds] Pods running: %s/2\n" "${ELAPSED}" "${READY}"
+    if [ "${READY}" -ge 2 ]; then
+      echo ""
+      echo "   ✓ Compute pods ready in ${ELAPSED}s"
+      break
+    fi
+  done
 
   echo ""
-  echo ">> Instance types selected:"
   kubectl get nodes -o custom-columns=\
 NAME:.metadata.name,\
 INSTANCE-TYPE:.metadata.labels.node\\.kubernetes\\.io/instance-type,\
@@ -133,17 +135,26 @@ POOL:.metadata.labels.karpenter\\.sh/nodepool
 step_memory_workload() {
   print_header "Memory-intensive workload"
 
+  MEM_START=$(date +%s)
   echo ">> Deploying memory-intensive workload (8Gi per pod, 2 replicas)..."
   kubectl apply -f "${MANIFESTS_DIR}/04-memory-intensive-workload.yaml"
 
   echo ""
-  echo ">> Watch eks-node-viewer — Karpenter selects an r-family instance."
-  echo ">> Waiting for pods..."
-  kubectl wait --for=condition=Ready pod -l app=memory-intensive \
-    -n "${NAMESPACE}" --timeout=120s 2>/dev/null || true
+  echo ">> ⏱ Waiting for r-family instance..."
+  for i in $(seq 1 24); do
+    sleep 5
+    NOW=$(date +%s)
+    ELAPSED=$(( NOW - MEM_START ))
+    READY=$(kubectl get pods -n "${NAMESPACE}" -l app=memory-intensive --no-headers 2>/dev/null | grep -c Running || echo 0)
+    printf "   [%3ds] Pods running: %s/2\n" "${ELAPSED}" "${READY}"
+    if [ "${READY}" -ge 2 ]; then
+      echo ""
+      echo "   ✓ Memory pods ready in ${ELAPSED}s"
+      break
+    fi
+  done
 
   echo ""
-  echo ">> Instance types selected:"
   kubectl get nodes -o custom-columns=\
 NAME:.metadata.name,\
 INSTANCE-TYPE:.metadata.labels.node\\.kubernetes\\.io/instance-type,\
@@ -169,8 +180,7 @@ step_consolidation() {
 
   CONSOLIDATION_START=$(date +%s)
   echo ""
-  echo ">> ⏱  Timer started. Waiting for node removal..."
-
+  echo ">> ⏱ Waiting for node removal..."
   for i in $(seq 1 24); do
     sleep 5
     NOW=$(date +%s)
@@ -184,7 +194,6 @@ step_consolidation() {
     fi
   done
 
-  # Wait for full consolidation
   for i in $(seq 1 12); do
     CURRENT=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
     if [ "${CURRENT}" -le 1 ]; then break; fi
@@ -199,7 +208,7 @@ step_consolidation() {
   NODE_AFTER=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
 
   echo ""
-  echo ">> Nodes: ${NODE_BEFORE} → ${NODE_AFTER}  (${TOTAL}s total)"
+  echo ">> Nodes: ${NODE_BEFORE} → ${NODE_AFTER}  (${TOTAL}s)"
   kubectl get pods -n "${NAMESPACE}" -o wide
 
   echo ""
@@ -215,14 +224,12 @@ step_scaling() {
   echo ">> Current state: ${NODES_BEFORE} node(s), ${PODS_BEFORE} pod(s)"
   wait_prompt
 
-  echo ">> Scaling sample-app to 30 replicas..."
   SCALE_START=$(date +%s)
+  echo ">> Scaling sample-app to 30 replicas..."
   kubectl scale deployment sample-app --replicas=30 -n "${NAMESPACE}"
 
   echo ""
-  echo ">> ⏱  Timer started. Waiting for new node..."
-
-  # Wait for new node
+  echo ">> ⏱ Waiting for new node..."
   for i in $(seq 1 24); do
     sleep 5
     NOW=$(date +%s)
@@ -237,9 +244,8 @@ step_scaling() {
     fi
   done
 
-  # Wait for all pods
   echo ""
-  echo ">> Waiting for all 30 pods to be ready..."
+  echo ">> Waiting for all 30 pods..."
   kubectl wait --for=condition=Ready pod -l app=sample-app \
     -n "${NAMESPACE}" --timeout=180s 2>/dev/null || true
 
@@ -252,14 +258,14 @@ step_scaling() {
   kubectl get nodes -L karpenter.sh/capacity-type,node.kubernetes.io/instance-type
 
   echo ""
-  echo "✓ Sub-minute scaling — ${TOTAL}s total."
+  echo "✓ Sub-minute scaling — ${TOTAL}s."
 }
 
 # ─── Cleanup ─────────────────────────────────────────────────────────────────
 step_cleanup() {
   print_header "Cleanup / Reset"
 
-  echo ">> Deleting demo-app namespace (removes all workloads)..."
+  echo ">> Deleting demo-app namespace..."
   kubectl delete namespace "${NAMESPACE}" --wait=false 2>/dev/null || true
 
   echo ">> Removing cost-optimized NodePool..."
@@ -269,12 +275,11 @@ step_cleanup() {
   for i in $(seq 1 12); do
     sleep 10
     NODES=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')
-    echo "   [${i}0s] Nodes: ${NODES}"
     if [ "${NODES}" -eq 0 ]; then break; fi
   done
 
   echo ""
-  echo "✓ Fully reset. Run step 1 to start fresh."
+  echo "✓ Reset. Run step 1 to start fresh."
 }
 
 # ─── Menu ────────────────────────────────────────────────────────────────────
@@ -298,7 +303,7 @@ if [ -z "$1" ]; then
       6) step_scaling; echo ""; echo "  c:clean  q:quit" ;;
       c|C) step_cleanup; echo ""; echo "  next: 1:provision" ;;
       q|Q) exit 0 ;;
-      ""|n|N) ;; # enter/n shows nothing, just re-prompt
+      ""|n|N) ;;
       h|H|help) show_menu ;;
       *) echo "  ?  h for help" ;;
     esac
