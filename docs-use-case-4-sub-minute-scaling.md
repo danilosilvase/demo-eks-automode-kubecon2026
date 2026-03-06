@@ -1,64 +1,49 @@
-# Use Case 4: Sub-Minute Scaling
+# Use Case: Sub-Minute Scaling
 
 ## Business Value
-Handle traffic spikes efficiently without over-provisioning, reducing costs while maintaining performance. Scale from 3 to 10 replicas in under 75 seconds total.
+Handle traffic spikes without over-provisioning. New nodes provisioned in under 60 seconds.
 
 ## Demo Steps (2-3 minutes)
 
 ### Step 1: Show Current State
 ```bash
 kubectl get nodes
-```
-Expected: 1 node running
-
-```bash
 kubectl get pods -n demo-app
 ```
-Expected: 3 sample-app pods running
+Expected: 1 node, 3 sample-app pods
 
-### Step 2: Scale Up Application
+### Step 2: Scale Up
 ```bash
-kubectl scale deployment sample-app --replicas=10 -n demo-app
+kubectl scale deployment sample-app --replicas=30 -n demo-app
 ```
 
-This simulates a traffic burst or demand spike
-
-Expected: Command completes in <1 second
-
-### Step 3: Watch Scaling Progress
-```bash
-kubectl get pods -n demo-app -w
+### Step 3: Watch Scaling with Timer
+The demo script shows a live timer:
 ```
+⏱  Timer started. Waiting for new node...
+   [ 5s] Nodes: 1  Pods running: 3/30
+   [10s] Nodes: 1  Pods running: 3/30
+   [45s] Nodes: 2  Pods running: 15/30
+   ✓ New node provisioned in 45s
 
-Expected timeline:
-- T+0s: 7 new pods created in Pending state
-- T+45-60s: New node provisioned and Ready
-- T+75s: All 10 pods in Running state
-
-Press Ctrl+C to stop watching once all pods are Running
+Waiting for all 30 pods...
+>> Nodes: 1 → 2  |  All 30 pods ready in 62s
+```
 
 ### Step 4: Verify Final State
 ```bash
-kubectl get nodes
+kubectl get nodes -L karpenter.sh/capacity-type,node.kubernetes.io/instance-type
 ```
-Expected: 2 nodes running
-
-```bash
-kubectl get pods -n demo-app
-```
-Expected: 10 sample-app pods in Running state
+Expected: 2+ nodes, all Spot, 30 pods running
 
 ## Talking Points
 
-- Sub-minute node provisioning (45-60 seconds)
-- Pods scheduled immediately when capacity available
-- Automatic scaling without manual intervention
-- Handles traffic spikes efficiently
-- Pay only for capacity when needed (no pre-provisioning required)
-- Total time from scale command to all pods serving traffic: ~75 seconds
+- "We went from 3 to 30 replicas — watch the timer"
+- "New node provisioned in under 60 seconds"
+- "All 30 pods serving traffic in about a minute"
+- "No pre-provisioned capacity needed — pay only when you need it"
 
 ## Key Metrics
-- Scaling Speed: 45-60 seconds for new node provisioning
-- Total Time to Serve: ~75 seconds from scale command to all pods running
-- Cost Impact: Pay only for capacity when needed
+- Node Provisioning: <60 seconds
+- All Pods Ready: ~60-75 seconds total
 - Pre-provisioning Required: None

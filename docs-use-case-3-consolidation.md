@@ -1,73 +1,50 @@
-# Use Case 3: Continuous Consolidation
+# Use Case: Consolidation
 
 ## Business Value
-Reduce idle capacity costs by 40-60% through automatic workload consolidation during low-traffic periods, with no manual intervention required.
+Reduce idle capacity costs by 40-60% through automatic workload consolidation during low-traffic periods.
 
-## Demo Steps (4-5 minutes)
+## Demo Steps (3-4 minutes)
 
 ### Step 1: Show Current State
 ```bash
-kubectl get nodes
+kubectl get nodes -L karpenter.sh/capacity-type,node.kubernetes.io/instance-type
 ```
-Expected: 2-3 nodes running (c-family for compute, r-family for memory)
+Expected: 2-3 nodes (c-family for compute, r-family for memory, all Spot)
 
-```bash
-kubectl get pods -n demo-app
-```
-Expected: 7+ pods running (3 sample-app + 2 compute-intensive + 2 memory-intensive)
-
-### Step 2: Scale Down Compute and Memory Workloads
+### Step 2: Scale Down Workloads
 ```bash
 kubectl scale deployment compute-intensive --replicas=0 -n demo-app
 kubectl scale deployment memory-intensive --replicas=0 -n demo-app
 ```
 
-This simulates low-traffic period or workload completion
-
-Expected: Command completes in <1 second
-
-### Step 3: Verify Pods Terminated
-```bash
-kubectl get pods -n demo-app
+### Step 3: Watch Consolidation with Timer
+The demo script shows a live timer:
+```
+⏱  Timer started. Waiting for node removal...
+   [ 5s] Nodes: 3
+   [10s] Nodes: 3
+   [35s] Nodes: 2
+   ✓ Node removed in 35s
+   [50s] Nodes: 1
 ```
 
-Expected: Only 3 sample-app pods remain (compute-intensive pods terminated in ~5 seconds)
+Expected: Karpenter evaluates underutilization after 30s, then drains and removes nodes.
 
-### Step 4: Watch Consolidation
-```bash
-kubectl get nodes -w
-```
-
-Expected timeline:
-- T+0s: Still showing 2 nodes
-- T+30s: Consolidation evaluation begins (underutilization detected)
-- T+60-90s: Second node status changes to NotReady, then disappears
-- Final state: 1 node with all 3 sample-app pods
-
-Press Ctrl+C to stop watching once consolidation completes
-
-### Step 5: Verify Final State
+### Step 4: Verify Final State
 ```bash
 kubectl get nodes
-```
-Expected: Back to 1 node
-
-```bash
 kubectl get pods -n demo-app -o wide
 ```
-Expected: All 3 sample-app pods running on single node
+Expected: 1 node, 3 sample-app pods consolidated
 
 ## Talking Points
 
-- Consolidation happens automatically after 30s of underutilization
-- Workloads gracefully moved to remaining nodes (zero downtime)
-- No manual intervention required
-- Reduces costs during low-traffic periods (nights, weekends)
-- 40-60% cost reduction during off-peak hours
-- Happens continuously 24/7 without human intervention
+- "Watch the timer — consolidation starts after 30 seconds of underutilization"
+- "Nodes drain gracefully, pods are rescheduled before the node is removed"
+- "This happens automatically 24/7 — nights, weekends, any low-traffic period"
+- "40-60% cost reduction during off-peak hours, zero manual intervention"
 
 ## Key Metrics
-- Consolidation Time: 60-90 seconds after 30-second evaluation period
-- Cost Savings: 40-60% reduction during low-traffic periods
-- Downtime: Zero - graceful workload migration
-- Daily Savings: Applies automatically during off-peak hours
+- Consolidation Time: 30s evaluation + ~30-60s drain = ~60-90s total
+- Cost Savings: 40-60% during low-traffic periods
+- Downtime: Zero — graceful pod migration
