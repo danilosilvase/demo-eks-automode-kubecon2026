@@ -1,67 +1,52 @@
 # EKS Auto Mode Demo — KubeCon 2026
 
-Demo showcasing EKS Auto Mode cost optimization features on Kubernetes 1.35.
+Live demo showcasing EKS Auto Mode cost optimization on Kubernetes 1.35.
+
+## Demo Flow
+
+| Step | What happens | What the audience sees |
+|------|-------------|----------------------|
+| 1. Zero-config provisioning | Deploy app, node appears automatically | ⏱ Timer: node + pods ready in ~60s |
+| 2. Spot NodePool | Apply one manifest, nodes switch to Spot | eks-node-viewer shows Spot label |
+| 3. CPU-intensive workload | Deploy 2-core pods | c-family instance selected |
+| 4. Memory-intensive workload | Deploy 8Gi pods | r-family instance selected |
+| 5. Consolidation | Scale down, nodes drain | ⏱ Timer: nodes removed in ~60s |
+| 6. Sub-minute scaling | Scale to 30 replicas | ⏱ Timer: new node in <60s |
 
 ## Requirements
 
-### AWS Account & Permissions
+### AWS Account
 
-- An AWS account with permissions to create: EKS clusters, VPCs, NAT Gateways, IAM roles, CloudWatch dashboards, and EKS addons
-- AWS CLI configured and authenticated (`aws sts get-caller-identity` should succeed)
-- Sufficient service quotas in the target region (eu-central-1):
-  - EKS clusters: at least 1 available
-  - VPCs: at least 1 available
-  - Elastic IPs: at least 1 available (for NAT Gateway)
-  - EC2 instances: on-demand vCPU limit sufficient for demo workloads (~8 vCPUs)
+- Permissions to create: EKS clusters, VPCs, NAT Gateways, IAM roles, CloudWatch dashboards, EKS addons
+- AWS CLI configured (`aws sts get-caller-identity` should succeed)
+- Region: eu-central-1 with sufficient quotas (~8 vCPUs on-demand + Spot)
 
 ### CLI Tools
 
-| Tool | Min Version | Install |
-|------|-------------|---------|
-| AWS CLI | v2.x | [Install guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) |
-| Terraform | >= 1.0 | `brew install terraform` |
-| kubectl | >= 1.28 | `brew install kubectl` |
-| tmux | any | `brew install tmux` |
-| k9s | any | `brew install derailed/k9s/k9s` |
-| eks-node-viewer | any | `brew install aws/tap/eks-node-viewer` |
-| Homebrew | any | [brew.sh](https://brew.sh) (macOS) |
+| Tool | Install |
+|------|---------|
+| AWS CLI v2 | [Install guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) |
+| Terraform >= 1.0 | `brew install terraform` |
+| kubectl >= 1.28 | `brew install kubectl` |
+| tmux | `brew install tmux` |
+| k9s | `brew install derailed/k9s/k9s` |
+| eks-node-viewer | `brew install aws/tap/eks-node-viewer` |
 
-Run `./scripts/setup-tools.sh` to check and install tmux, k9s, and eks-node-viewer automatically.
+Or run `./scripts/setup-tools.sh` to install tmux, k9s, and eks-node-viewer.
 
 ### Local Environment
 
-- macOS or Linux (scripts use bash)
-- Internet access (Terraform providers, container images, CloudWatch API)
-- ~2 GB free disk space (Terraform provider cache)
-- A terminal that supports at least 200 columns wide (for the tmux layout)
+- macOS or Linux (bash)
+- Terminal at least 200 columns wide
+- ~2 GB free disk space
 
-### Estimated Costs
+### Cost
 
-- EKS cluster: ~$0.10/hr
-- NAT Gateway: ~$0.045/hr + data transfer
-- EC2 nodes (Auto Mode managed): varies by instance type, typically 1-3 nodes during demo
-- CloudWatch Container Insights: ~$0.01/metric/month
-- Total for a 1-hour demo session: approximately $1-3 USD
-
-### Time Requirements
-
-| Phase | Duration |
-|-------|----------|
-| Tool installation | ~5 min (first time only) |
-| Cluster creation (`terraform apply`) | ~10 min |
-| Application deployment | ~2 min |
-| Live demo | 12-15 min |
-| Cleanup (`terraform destroy`) | ~4 min |
+~$1-3 USD for a 1-hour demo session.
 
 ## Quick Start
 
-### 1. Install Visualization Tools
-
-```bash
-./scripts/setup-tools.sh
-```
-
-### 2. Deploy Cluster
+### 1. Deploy infrastructure (~10 min)
 
 ```bash
 cd terraform
@@ -70,139 +55,131 @@ terraform plan -out=tfplan
 terraform apply tfplan
 ```
 
-Takes ~10 minutes. Creates VPC, NAT Gateway, EKS cluster with Auto Mode, Container Insights addon, and CloudWatch dashboard.
+Creates VPC, EKS cluster with Auto Mode, Container Insights addon, and CloudWatch dashboard.
 
-### 3. Configure kubectl
+### 2. Configure kubectl
 
 ```bash
 aws eks update-kubeconfig --region eu-central-1 --name eks-auto-demo
 ```
 
-### 4. Deploy Applications
-
-```bash
-kubectl apply -f manifests/00-cost-optimized-nodepool.yaml
-kubectl apply -f manifests/01-namespace.yaml
-kubectl apply -f manifests/02-sample-app.yaml
-```
-
-Wait ~60 seconds for first node to provision (should come up as Spot).
-
-### 5. Launch Visual Demo
+### 3. Launch visual layout
 
 ```bash
 ./scripts/demo-visual.sh
 ```
 
-This opens a tmux session with three panes:
+Opens a tmux session:
 
 ```
 ┌─────────────────────────────────────────┐
-│      eks-node-viewer (compact)          │
-│  (node utilization bars + costs)        │
+│      eks-node-viewer (14 rows)          │
+│  node bars, instance types, Spot/OD     │
 ├──────────────┬──────────────────────────┤
 │              │                          │
 │  k9s (pods)  │    Command terminal      │
-│              │    (wider, for output)    │
+│              │    (60% width)           │
 │              │                          │
 └──────────────┴──────────────────────────┘
 ```
 
-Then open the CloudWatch dashboard in a browser (URL printed during `terraform apply` or by running `./cloudwatch/deploy-dashboard.sh`).
+eks-node-viewer auto-restarts if it crashes (known issue with 0 nodes).
 
-### 6. Run Demo Commands
+### 4. Open CloudWatch dashboard
 
-From the command terminal pane inside tmux:
+```
+https://eu-central-1.console.aws.amazon.com/cloudwatch/home?region=eu-central-1#dashboards/dashboard/EKS-AutoMode-Demo-eks-auto-demo
+```
+
+### 5. Run the demo
+
+From the command terminal pane:
 
 ```bash
+# Interactive — step through manually
 ./scripts/demo-commands.sh
+
+# Auto-run — for screen recording
+./scripts/demo-record.sh
 ```
 
-Interactive menu lets you run each demo part. The other panes update in real-time.
+Interactive prompt:
+```
+1:provision  2:spot  3:cpu  4:memory  5:consolidate  6:scale  c:clean  q:quit
+>> 1
+```
 
-## Visualization Stack
+Type the number, each step clears the screen. After each step it hints the next one. Type `c` anytime to reset. Type `h` for the full menu.
 
-| Tool | What it shows | Where |
-|------|--------------|-------|
-| eks-node-viewer | Node utilization bars, instance types, capacity types | tmux top pane |
-| k9s | Pod lifecycle (Pending → Running), real-time status | tmux bottom-left |
-| CloudWatch Dashboard | Metrics over time: node count, CPU/memory, pod count | Browser tab |
+### 6. Recording mode
 
-### CloudWatch Dashboard
-
-Deployed automatically via Terraform (`terraform/cloudwatch.tf`). Can also be deployed standalone:
+Start screen recording, then:
 
 ```bash
-# Deploy
-./cloudwatch/deploy-dashboard.sh eks-auto-demo eu-central-1
-
-# Cleanup
-./cloudwatch/cleanup-dashboard.sh eks-auto-demo eu-central-1
+./scripts/demo-record.sh          # 10s pauses (default)
+PAUSE=5 ./scripts/demo-record.sh  # faster
+PAUSE=15 ./scripts/demo-record.sh # slower
 ```
 
-Dashboard panels:
-- Node Count Over Time (shows scaling and consolidation)
-- Pod Count in demo-app namespace
-- Cluster CPU and Memory Utilization
-- CPU/Memory Reserved vs Used (shows right-sizing)
-- Single-value gauges for current state
+Runs all 6 steps with simulated typing and live timers.
 
-## Demo Use Cases
+## Resetting the demo
 
-Each use case has detailed step-by-step instructions:
+From the interactive prompt, type `c`. This:
+- Deletes the `demo-app` namespace (all workloads)
+- Removes the `cost-optimized` NodePool
+- Waits for nodes to drain
 
-1. [Spot Instance Integration](docs-use-case-1-spot-integration.md) — Up to 90% cost savings (2-3 min)
-2. [Intelligent Instance Selection](docs-use-case-2-intelligent-selection.md) — 30-50% savings (3-4 min)
-3. [Continuous Consolidation](docs-use-case-3-consolidation.md) — 40-60% savings (4-5 min)
-4. [Sub-Minute Scaling](docs-use-case-4-sub-minute-scaling.md) — Fast response to demand (2-3 min)
+Then start fresh from step 1.
 
-## Additional Documentation
+## Use Case Documentation
 
-- [Business Summary](DEMO-BUSINESS-SUMMARY.md) — Executive overview with ROI
-- [Technical Guide](docs-technical-guide.md) — Complete demo guide with timings
+1. [Spot Integration](docs-use-case-1-spot-integration.md) — Custom NodePool with Spot + On-Demand
+2. [Intelligent Instance Selection](docs-use-case-2-intelligent-selection.md) — c-family for CPU, r-family for memory
+3. [Consolidation](docs-use-case-3-consolidation.md) — Automatic node removal on scale-down
+4. [Sub-Minute Scaling](docs-use-case-4-sub-minute-scaling.md) — Node provisioning in <60s
+
+Additional:
+- [Business Summary](DEMO-BUSINESS-SUMMARY.md)
+- [Technical Guide](docs-technical-guide.md)
 
 ## Project Structure
 
 ```
 .
 ├── terraform/
-│   ├── main.tf                 # EKS Auto Mode cluster
-│   ├── cloudwatch.tf           # Container Insights addon + dashboard
-│   ├── variables.tf
-│   ├── outputs.tf
-│   └── versions.tf
+│   ├── main.tf                 # EKS cluster with Auto Mode
+│   ├── cloudwatch.tf           # Container Insights + dashboard
+│   ├── variables.tf / outputs.tf / versions.tf
 ├── cloudwatch/
 │   ├── dashboard.json          # CloudWatch dashboard definition
-│   ├── deploy-dashboard.sh     # Standalone dashboard deploy
-│   └── cleanup-dashboard.sh    # Dashboard cleanup
+│   ├── deploy-dashboard.sh     # Standalone deploy
+│   └── cleanup-dashboard.sh
 ├── manifests/
+│   ├── 00-cost-optimized-nodepool.yaml  # Spot + On-Demand NodePool
 │   ├── 01-namespace.yaml
-│   ├── 02-sample-app.yaml
-│   ├── 03-compute-intensive-workload.yaml
-│   ├── 04-memory-intensive-workload.yaml
+│   ├── 02-sample-app.yaml               # 3 replicas, nginx
+│   ├── 03-compute-intensive-workload.yaml  # 2 CPU cores/pod
+│   ├── 04-memory-intensive-workload.yaml   # 8Gi memory/pod
 │   ├── 05-load-generator.yaml
 │   └── 06-pod-disruption-budget.yaml
 ├── scripts/
-│   ├── setup-tools.sh          # Install eks-node-viewer, k9s, tmux
-│   ├── demo-visual.sh          # Launch tmux visual layout
-│   └── demo-commands.sh        # Interactive demo command runner
-├── docs-use-case-*.md
-├── docs-technical-guide.md
-└── DEMO-BUSINESS-SUMMARY.md
+│   ├── setup-tools.sh          # Install visualization tools
+│   ├── demo-visual.sh          # Launch tmux layout
+│   ├── demo-commands.sh        # Interactive demo runner
+│   └── demo-record.sh          # Auto-run for recording
+└── docs-*.md
 ```
 
-## Cleanup
+## Teardown
 
 ```bash
-# Delete workloads
-kubectl delete namespace demo-app
+# Kill tmux
+tmux kill-session -t eks-demo
 
-# Destroy infrastructure (includes CloudWatch dashboard)
+# Destroy infrastructure
 cd terraform
 terraform destroy -auto-approve
-
-# Kill tmux session
-tmux kill-session -t eks-demo
 ```
 
-Takes ~4 minutes.
+~4 minutes.
