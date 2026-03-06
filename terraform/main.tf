@@ -19,7 +19,8 @@ locals {
 ################################################################################
 
 module "eks" {
-  source = "../../terraform-aws-eks-module"
+  source  = "terraform-aws-modules/eks/aws"
+  version = "~> 21.0"
 
   name                   = local.name
   kubernetes_version     = var.kubernetes_version
