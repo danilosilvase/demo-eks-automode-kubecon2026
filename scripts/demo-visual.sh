@@ -59,14 +59,9 @@ tmux new-session -d -s "${SESSION}" -x 220 -y 60 \
 tmux split-window -v -t "${SESSION}:0" \
   "k9s --namespace ${NAMESPACE} --command pods 2>&1 || { echo 'k9s exited. Press Enter to close.'; read; }"
 
-# Pane 2: Command terminal (bottom-right — wider for demo commands output)
-tmux split-window -h -t "${SESSION}:0.1" -l 60% \
-  "echo ''; \
-   echo '  EKS Auto Mode Demo — Command Terminal'; \
-   echo '  Cluster: ${CLUSTER_NAME} | Region: ${REGION}'; \
-   echo '  Run: ./scripts/demo-commands.sh'; \
-   echo ''; \
-   exec bash"
+# Pane 2: Command terminal (bottom-right)
+tmux split-window -h -t "${SESSION}:0.1" -l 45% \
+  "echo '  Run: ./scripts/demo-commands.sh'; echo ''; exec bash"
 
 # --- Layout ---
 # eks-node-viewer needs ~14 lines minimum to avoid TUI crash
