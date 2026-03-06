@@ -1,13 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# EKS Auto Mode Demo — Step-by-Step Commands
-# =============================================================================
-# Run individual demo parts from the command terminal pane.
-# The visual tools (eks-node-viewer, k9s, CloudWatch) update automatically.
-#
-# Usage:
-#   ./scripts/demo-commands.sh part1|part2|part3|part4|cleanup
-#   ./scripts/demo-commands.sh          # interactive menu
+# EKS Auto Mode Demo — Interactive Commands
 # =============================================================================
 
 set -e
@@ -31,93 +24,140 @@ wait_prompt() {
   echo ""
 }
 
-# ─── Part 1: Initial State & Spot Integration ────────────────────────────────
-part1() {
-  print_header "PART 1: Initial State & Spot Integration (2-3 min)"
+# ─── 1. Deploy a simple workload ─────────────────────────────────────────────
+step_simple_workload() {
+  print_header "Deploy a simple workload"
 
-  echo ">> Current nodes (capacity type + instance type):"
-  kubectl get nodes -L karpenter.sh/capacity-type,karpenter.sh/nodepool,node.kubernetes.io/instance-type -o wide
-  wait_prompt
+  echo ">> Creating namespace and deploying sample app (3 replicas)..."
+  kubectl apply -f "${MANIFESTS_DIR}/01-namespace.yaml"
+  kubectl apply -f "${MANIFESTS_DIR}/02-sample-app.yaml"
 
-  echo ">> Pods in ${NAMESPACE}:"
+  echo ""
+  echo ">> Auto Mode provisions a node automatically — watch the top pane."
+  echo ">> Waiting for pods to be ready..."
+  kubectl wait --for=condition=Ready pod -l app=sample-app \
+    -n "${NAMESPACE}" --timeout=120s 2>/dev/null || true
+
+  echo ""
+  echo ">> Cluster state:"
+  kubectl get nodes -L karpenter.sh/capacity-type,karpenter.sh/nodepool,node.kubernetes.io/instance-type
+  echo ""
   kubectl get pods -n "${NAMESPACE}" -o wide
+
+  echo ""
+  echo "✓ Auto Mode provisioned a node and scheduled pods — zero config."
+}
+
+# ─── 2. Enable Spot with a custom NodePool ───────────────────────────────────
+step_spot_nodepool() {
+  print_header "Enable Spot with a custom NodePool"
+
+  echo ">> Current NodePools (built-in, on-demand only):"
+  kubectl get nodepools
   wait_prompt
 
-  echo ">> NodePools — notice the custom 'cost-optimized' pool with Spot:"
+  echo ">> Applying cost-optimized NodePool (Spot + On-Demand, weight 100)..."
+  kubectl apply -f "${MANIFESTS_DIR}/00-cost-optimized-nodepool.yaml"
+
+  echo ""
+  echo ">> NodePools now:"
   kubectl get nodepools
   echo ""
-  echo ">> cost-optimized NodePool config (Spot + On-Demand):"
-  kubectl describe nodepool cost-optimized | head -45
+  echo ">> cost-optimized config:"
+  kubectl describe nodepool cost-optimized | grep -A20 "Spec:" | head -25
   wait_prompt
 
-  echo ">> Capacity type breakdown:"
+  echo ">> Karpenter will consolidate existing on-demand nodes to Spot."
+  echo ">> Watch eks-node-viewer — nodes will transition to Spot."
+  echo ""
+
+  for i in $(seq 1 9); do
+    sleep 10
+    SPOT=$(kubectl get nodes -l karpenter.sh/capacity-type=spot --no-headers 2>/dev/null | wc -l | tr -d ' ')
+    echo "   [${i}0s] Spot nodes: ${SPOT}"
+    if [ "${SPOT}" -gt 0 ]; then
+      echo "   ✓ Spot node detected."
+      break
+    fi
+  done
+
+  echo ""
+  echo ">> Capacity breakdown:"
   echo "   On-Demand: $(kubectl get nodes -l karpenter.sh/capacity-type=on-demand --no-headers 2>/dev/null | wc -l | tr -d ' ')"
   echo "   Spot:      $(kubectl get nodes -l karpenter.sh/capacity-type=spot --no-headers 2>/dev/null | wc -l | tr -d ' ')"
 
   echo ""
-  echo "✓ Part 1 complete. Watch eks-node-viewer (top pane) for Spot vs On-Demand."
+  echo "✓ One NodePool manifest — that's all it takes to enable Spot."
 }
 
-# ─── Part 2: Intelligent Instance Selection ──────────────────────────────────
-part2() {
-  print_header "PART 2: Intelligent Instance Selection (3-4 min)"
+# ─── 3. CPU-intensive workload ───────────────────────────────────────────────
+step_cpu_workload() {
+  print_header "CPU-intensive workload"
 
-  echo ">> Deploying compute-intensive workload (2 CPU cores per pod)..."
+  echo ">> Deploying compute-intensive workload (2 CPU cores per pod, 2 replicas)..."
   kubectl apply -f "${MANIFESTS_DIR}/03-compute-intensive-workload.yaml"
 
   echo ""
-  echo ">> Deploying memory-intensive workload (3Gi memory per pod)..."
-  kubectl apply -f "${MANIFESTS_DIR}/04-memory-intensive-workload.yaml"
-
-  echo ""
-  echo ">> Watch eks-node-viewer (top pane) for new node provisioning..."
-  echo ">> Watch k9s (bottom-left) for pods transitioning Pending → Running..."
-  echo ""
-  echo ">> Waiting for compute pods to be ready (timeout 120s)..."
+  echo ">> Watch eks-node-viewer — Karpenter selects a c-family instance."
+  echo ">> Waiting for pods..."
   kubectl wait --for=condition=Ready pod -l app=compute-intensive \
-    -n "${NAMESPACE}" --timeout=120s 2>/dev/null || \
-    echo "   (some pods may still be starting)"
-
-  echo ">> Waiting for memory pods to be ready (timeout 120s)..."
-  kubectl wait --for=condition=Ready pod -l app=memory-intensive \
-    -n "${NAMESPACE}" --timeout=120s 2>/dev/null || \
-    echo "   (some pods may still be starting)"
+    -n "${NAMESPACE}" --timeout=120s 2>/dev/null || true
 
   echo ""
-  echo ">> Pod distribution across nodes:"
-  kubectl get pods -n "${NAMESPACE}" -o wide
-  echo ""
-  echo ">> Node instance types selected by Auto Mode:"
+  echo ">> Instance types selected:"
   kubectl get nodes -o custom-columns=\
 NAME:.metadata.name,\
 INSTANCE-TYPE:.metadata.labels.node\\.kubernetes\\.io/instance-type,\
 CAPACITY:.metadata.labels.karpenter\\.sh/capacity-type,\
-AGE:.metadata.creationTimestamp
+POOL:.metadata.labels.karpenter\\.sh/nodepool
 
   echo ""
-  echo "✓ Part 2 complete. Note the instance type Auto Mode selected."
+  echo "✓ c-family (compute-optimized) instance selected for CPU workload."
 }
 
-# ─── Part 3: Continuous Consolidation ────────────────────────────────────────
-part3() {
-  print_header "PART 3: Continuous Consolidation (4-5 min)"
+# ─── 4. Memory-intensive workload ────────────────────────────────────────────
+step_memory_workload() {
+  print_header "Memory-intensive workload"
+
+  echo ">> Deploying memory-intensive workload (8Gi per pod, 2 replicas)..."
+  kubectl apply -f "${MANIFESTS_DIR}/04-memory-intensive-workload.yaml"
+
+  echo ""
+  echo ">> Watch eks-node-viewer — Karpenter selects an r-family instance."
+  echo ">> Waiting for pods..."
+  kubectl wait --for=condition=Ready pod -l app=memory-intensive \
+    -n "${NAMESPACE}" --timeout=120s 2>/dev/null || true
+
+  echo ""
+  echo ">> Instance types selected:"
+  kubectl get nodes -o custom-columns=\
+NAME:.metadata.name,\
+INSTANCE-TYPE:.metadata.labels.node\\.kubernetes\\.io/instance-type,\
+CAPACITY:.metadata.labels.karpenter\\.sh/capacity-type,\
+POOL:.metadata.labels.karpenter\\.sh/nodepool
+
+  echo ""
+  echo "✓ r-family (memory-optimized) instance selected for memory workload."
+}
+
+# ─── 5. Consolidation ────────────────────────────────────────────────────────
+step_consolidation() {
+  print_header "Consolidation"
 
   NODE_BEFORE=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
-  echo ">> Current node count: ${NODE_BEFORE}"
-  echo ""
+  echo ">> Current nodes: ${NODE_BEFORE}"
+  kubectl get nodes -L karpenter.sh/capacity-type,node.kubernetes.io/instance-type
+  wait_prompt
 
-  echo ">> Scaling down compute-intensive and memory-intensive workloads to 0..."
+  echo ">> Scaling down compute and memory workloads..."
   kubectl scale deployment compute-intensive --replicas=0 -n "${NAMESPACE}"
   kubectl scale deployment memory-intensive --replicas=0 -n "${NAMESPACE}"
 
   echo ""
-  echo ">> Auto Mode evaluates underutilization after 30s, then consolidates."
-  echo ">> Watch eks-node-viewer (top pane) — a node should drain and disappear."
-  echo ">> Watch k9s (bottom-left) — pods will be rescheduled."
-  echo ""
-  echo ">> Waiting ~90 seconds for consolidation..."
+  echo ">> Karpenter evaluates underutilization after 30s, then consolidates."
+  echo ">> Watch eks-node-viewer — nodes will drain and disappear."
 
-  for i in $(seq 1 9); do
+  for i in $(seq 1 12); do
     sleep 10
     CURRENT=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
     echo "   [${i}0s] Nodes: ${CURRENT}"
@@ -129,73 +169,76 @@ part3() {
 
   echo ""
   NODE_AFTER=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
-  echo ">> Final node count: ${NODE_AFTER} (was ${NODE_BEFORE})"
-  echo ">> Pods consolidated:"
+  echo ">> Nodes: ${NODE_BEFORE} → ${NODE_AFTER}"
   kubectl get pods -n "${NAMESPACE}" -o wide
 
   echo ""
-  echo "✓ Part 3 complete. Check CloudWatch dashboard for utilization changes."
+  echo "✓ Workloads consolidated to fewer nodes automatically."
 }
 
-# ─── Part 4: Sub-Minute Scaling ──────────────────────────────────────────────
-part4() {
-  print_header "PART 4: Sub-Minute Scaling (2-3 min)"
+# ─── 6. Sub-minute scaling ───────────────────────────────────────────────────
+step_scaling() {
+  print_header "Sub-minute scaling"
 
-  echo ">> Scaling sample-app to 10 replicas..."
+  echo ">> Current state:"
+  kubectl get nodes --no-headers | wc -l | xargs -I{} echo "   Nodes: {}"
+  kubectl get pods -n "${NAMESPACE}" --no-headers | wc -l | xargs -I{} echo "   Pods:  {}"
+  wait_prompt
+
+  echo ">> Scaling sample-app to 30 replicas (will exceed current node capacity)..."
   START=$(date +%s)
-  kubectl scale deployment sample-app --replicas=10 -n "${NAMESPACE}"
+  kubectl scale deployment sample-app --replicas=30 -n "${NAMESPACE}"
 
   echo ""
-  echo ">> Watch eks-node-viewer (top pane) for new node appearing..."
-  echo ">> Watch k9s (bottom-left) for pods going Pending → Running..."
-  echo ""
-  echo ">> Waiting for all pods to be ready (timeout 120s)..."
+  echo ">> Watch eks-node-viewer — new node provisioned in under 60 seconds."
+  echo ">> Waiting for all pods to be ready..."
   kubectl wait --for=condition=Ready pod -l app=sample-app \
-    -n "${NAMESPACE}" --timeout=120s 2>/dev/null || \
-    echo "   (some pods may still be starting)"
+    -n "${NAMESPACE}" --timeout=180s 2>/dev/null || true
 
   END=$(date +%s)
   ELAPSED=$((END - START))
 
   echo ""
   echo ">> All pods ready in ${ELAPSED} seconds."
-  echo ">> Final state:"
-  kubectl get nodes -o wide
+  kubectl get nodes -L karpenter.sh/capacity-type,node.kubernetes.io/instance-type
   echo ""
-  kubectl get pods -n "${NAMESPACE}" -o wide
+  kubectl get pods -n "${NAMESPACE}" --no-headers | wc -l | xargs -I{} echo "   Running pods: {}"
 
   echo ""
-  echo "✓ Part 4 complete. Sub-minute scaling demonstrated."
+  echo "✓ Sub-minute scaling — new capacity provisioned in under 60s."
 }
 
 # ─── Cleanup ─────────────────────────────────────────────────────────────────
-cleanup() {
-  print_header "CLEANUP"
+step_cleanup() {
+  print_header "Cleanup / Reset"
 
-  echo ">> Resetting deployments..."
+  echo ">> Resetting to initial state (3 sample-app pods)..."
   kubectl scale deployment sample-app --replicas=3 -n "${NAMESPACE}" 2>/dev/null || true
   kubectl scale deployment compute-intensive --replicas=0 -n "${NAMESPACE}" 2>/dev/null || true
   kubectl scale deployment memory-intensive --replicas=0 -n "${NAMESPACE}" 2>/dev/null || true
 
-  echo ">> Current state:"
+  echo ">> Waiting for consolidation..."
+  sleep 10
   kubectl get pods -n "${NAMESPACE}"
   echo ""
-  echo "✓ Reset to initial demo state (3 sample-app pods)."
+  echo "✓ Reset complete."
 }
 
 # ─── Menu ────────────────────────────────────────────────────────────────────
 show_menu() {
   echo ""
-  echo "┌──────────────────────────────────────────┐"
-  echo "│  EKS Auto Mode Demo — Choose a section   │"
-  echo "├──────────────────────────────────────────┤"
-  echo "│  1) Part 1: Initial State & Spot         │"
-  echo "│  2) Part 2: Intelligent Instance Select  │"
-  echo "│  3) Part 3: Continuous Consolidation     │"
-  echo "│  4) Part 4: Sub-Minute Scaling           │"
-  echo "│  c) Cleanup / Reset                      │"
-  echo "│  q) Quit                                 │"
-  echo "└──────────────────────────────────────────┘"
+  echo "  ┌────────────────────────────────────────┐"
+  echo "  │  EKS Auto Mode Demo                    │"
+  echo "  ├────────────────────────────────────────┤"
+  echo "  │  1) Simple workload                    │"
+  echo "  │  2) Spot NodePool                      │"
+  echo "  │  3) CPU-intensive workload             │"
+  echo "  │  4) Memory-intensive workload          │"
+  echo "  │  5) Consolidation                      │"
+  echo "  │  6) Sub-minute scaling                 │"
+  echo "  │  c) Cleanup / Reset                    │"
+  echo "  │  q) Quit                               │"
+  echo "  └────────────────────────────────────────┘"
   echo ""
 }
 
@@ -205,22 +248,26 @@ if [ -z "$1" ]; then
     show_menu
     read -p "  Choice: " choice
     case $choice in
-      1) part1 ;;
-      2) part2 ;;
-      3) part3 ;;
-      4) part4 ;;
-      c|C) cleanup ;;
+      1) step_simple_workload ;;
+      2) step_spot_nodepool ;;
+      3) step_cpu_workload ;;
+      4) step_memory_workload ;;
+      5) step_consolidation ;;
+      6) step_scaling ;;
+      c|C) step_cleanup ;;
       q|Q) exit 0 ;;
       *) echo "  Invalid choice." ;;
     esac
   done
 else
   case $1 in
-    part1) part1 ;;
-    part2) part2 ;;
-    part3) part3 ;;
-    part4) part4 ;;
-    cleanup) cleanup ;;
-    *) echo "Usage: $0 [part1|part2|part3|part4|cleanup]"; exit 1 ;;
+    1|simple) step_simple_workload ;;
+    2|spot) step_spot_nodepool ;;
+    3|cpu) step_cpu_workload ;;
+    4|memory) step_memory_workload ;;
+    5|consolidation) step_consolidation ;;
+    6|scaling) step_scaling ;;
+    cleanup) step_cleanup ;;
+    *) echo "Usage: $0 [1-6|cleanup]"; exit 1 ;;
   esac
 fi
