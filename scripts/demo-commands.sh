@@ -212,35 +212,37 @@ step_scaling() {
 step_cleanup() {
   print_header "Cleanup / Reset"
 
-  echo ">> Scaling all workloads to zero..."
-  kubectl scale deployment compute-intensive --replicas=0 -n "${NAMESPACE}" 2>/dev/null || true
-  kubectl scale deployment memory-intensive --replicas=0 -n "${NAMESPACE}" 2>/dev/null || true
-  kubectl scale deployment sample-app --replicas=0 -n "${NAMESPACE}" 2>/dev/null || true
+  echo ">> Deleting workloads..."
+  kubectl delete deployment compute-intensive -n "${NAMESPACE}" 2>/dev/null || true
+  kubectl delete deployment memory-intensive -n "${NAMESPACE}" 2>/dev/null || true
+  kubectl delete deployment sample-app -n "${NAMESPACE}" 2>/dev/null || true
+  kubectl delete service sample-app -n "${NAMESPACE}" 2>/dev/null || true
 
   echo ">> Removing cost-optimized NodePool..."
   kubectl delete nodepool cost-optimized 2>/dev/null || true
 
   echo ">> Waiting for pods to terminate..."
-  sleep 5
-  kubectl get pods -n "${NAMESPACE}" --no-headers 2>/dev/null | wc -l | xargs -I{} echo "   Remaining pods: {}"
+  kubectl wait --for=delete pod -l app=sample-app -n "${NAMESPACE}" --timeout=30s 2>/dev/null || true
+  kubectl wait --for=delete pod -l app=compute-intensive -n "${NAMESPACE}" --timeout=30s 2>/dev/null || true
+  kubectl wait --for=delete pod -l app=memory-intensive -n "${NAMESPACE}" --timeout=30s 2>/dev/null || true
 
-  echo ">> Waiting for nodes to consolidate (up to 2 min)..."
+  echo ">> Waiting for nodes to drain (up to 2 min)..."
   for i in $(seq 1 12); do
     sleep 10
     NODES=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')
     echo "   [${i}0s] Nodes: ${NODES}"
-    if [ "${NODES}" -le 1 ]; then
+    if [ "${NODES}" -eq 0 ]; then
       break
     fi
   done
 
   echo ""
   echo ">> Final state:"
-  kubectl get nodes 2>/dev/null || echo "   No nodes (cluster idle)"
-  kubectl get pods -n "${NAMESPACE}" 2>/dev/null || echo "   No pods"
+  kubectl get nodes 2>/dev/null || echo "   No nodes"
+  kubectl get deployments -n "${NAMESPACE}" 2>/dev/null || echo "   No deployments"
 
   echo ""
-  echo "✓ Reset complete. Run step 1 to start the demo fresh."
+  echo "✓ Fully reset. Run step 1 to start the demo fresh."
 }
 
 # ─── Menu ────────────────────────────────────────────────────────────────────
