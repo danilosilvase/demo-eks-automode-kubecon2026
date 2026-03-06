@@ -42,7 +42,7 @@ step_simple_workload() {
     NOW=$(date +%s)
     ELAPSED=$(( NOW - PROVISION_START ))
     NODES=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')
-    READY=$(kubectl get pods -n "${NAMESPACE}" -l app=sample-app --no-headers 2>/dev/null | grep -c Running || echo 0)
+    READY=$(kubectl get pods -n "${NAMESPACE}" -l app=sample-app --no-headers 2>/dev/null | grep Running | wc -l | tr -d " ")
     printf "   [%3ds] Nodes: %s  Pods running: %s/3\n" "${ELAPSED}" "${NODES}" "${READY}"
     if [ "${READY}" -ge 3 ]; then
       echo ""
@@ -111,7 +111,7 @@ step_cpu_workload() {
     sleep 5
     NOW=$(date +%s)
     ELAPSED=$(( NOW - CPU_START ))
-    READY=$(kubectl get pods -n "${NAMESPACE}" -l app=compute-intensive --no-headers 2>/dev/null | grep -c Running || echo 0)
+    READY=$(kubectl get pods -n "${NAMESPACE}" -l app=compute-intensive --no-headers 2>/dev/null | grep Running | wc -l | tr -d " ")
     printf "   [%3ds] Pods running: %s/2\n" "${ELAPSED}" "${READY}"
     if [ "${READY}" -ge 2 ]; then
       echo ""
@@ -145,7 +145,7 @@ step_memory_workload() {
     sleep 5
     NOW=$(date +%s)
     ELAPSED=$(( NOW - MEM_START ))
-    READY=$(kubectl get pods -n "${NAMESPACE}" -l app=memory-intensive --no-headers 2>/dev/null | grep -c Running || echo 0)
+    READY=$(kubectl get pods -n "${NAMESPACE}" -l app=memory-intensive --no-headers 2>/dev/null | grep Running | wc -l | tr -d " ")
     printf "   [%3ds] Pods running: %s/2\n" "${ELAPSED}" "${READY}"
     if [ "${READY}" -ge 2 ]; then
       echo ""
@@ -236,7 +236,7 @@ step_scaling() {
     NOW=$(date +%s)
     ELAPSED=$(( NOW - SCALE_START ))
     CURRENT_NODES=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
-    READY_PODS=$(kubectl get pods -n "${NAMESPACE}" -l app=sample-app --no-headers 2>/dev/null | grep -c Running || echo 0)
+    READY_PODS=$(kubectl get pods -n "${NAMESPACE}" -l app=sample-app --no-headers 2>/dev/null | grep Running | wc -l | tr -d " ")
     printf "   [%3ds] Nodes: %s  Pods running: %s/30\n" "${ELAPSED}" "${CURRENT_NODES}" "${READY_PODS}"
     if [ "${CURRENT_NODES}" -gt "${NODES_BEFORE}" ]; then
       echo ""
