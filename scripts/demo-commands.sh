@@ -292,6 +292,7 @@ show_menu() {
 
 # ─── Main ────────────────────────────────────────────────────────────────────
 if [ -z "$1" ]; then
+  clear
   show_menu
   while true; do
     read -p "  >> " choice
