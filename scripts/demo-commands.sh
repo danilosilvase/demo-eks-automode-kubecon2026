@@ -174,9 +174,10 @@ step_consolidation() {
   kubectl get nodes -L karpenter.sh/capacity-type,node.kubernetes.io/instance-type
   wait_prompt
 
-  echo ">> Scaling down compute and memory workloads..."
+  echo ">> Scaling down all workloads..."
   kubectl scale deployment compute-intensive --replicas=0 -n "${NAMESPACE}"
   kubectl scale deployment memory-intensive --replicas=0 -n "${NAMESPACE}"
+  kubectl scale deployment sample-app --replicas=3 -n "${NAMESPACE}"
 
   CONSOLIDATION_START=$(date +%s)
   echo ""
@@ -285,7 +286,7 @@ step_cleanup() {
 # ─── Menu ────────────────────────────────────────────────────────────────────
 show_menu() {
   echo ""
-  echo "  1:provision  2:spot  3:cpu  4:memory  5:consolidate  6:scale  c:clean  q:quit"
+  echo "  1:provision  2:spot  3:cpu  4:memory  5:scale  6:consolidate  c:clean  q:quit"
   echo ""
 }
 
@@ -298,9 +299,9 @@ if [ -z "$1" ]; then
       1) step_simple_workload; echo ""; echo "  next: 2:spot  c:clean" ;;
       2) step_spot_nodepool; echo ""; echo "  next: 3:cpu  c:clean" ;;
       3) step_cpu_workload; echo ""; echo "  next: 4:memory  c:clean" ;;
-      4) step_memory_workload; echo ""; echo "  next: 5:consolidate  c:clean" ;;
-      5) step_consolidation; echo ""; echo "  next: 6:scale  c:clean" ;;
-      6) step_scaling; echo ""; echo "  c:clean  q:quit" ;;
+      4) step_memory_workload; echo ""; echo "  next: 5:scale  c:clean" ;;
+      5) step_scaling; echo ""; echo "  next: 6:consolidate  c:clean" ;;
+      6) step_consolidation; echo ""; echo "  c:clean  q:quit" ;;
       c|C) step_cleanup; echo ""; echo "  next: 1:provision" ;;
       q|Q) exit 0 ;;
       ""|n|N) ;;
@@ -314,8 +315,8 @@ else
     2|spot) step_spot_nodepool ;;
     3|cpu) step_cpu_workload ;;
     4|memory) step_memory_workload ;;
-    5|consolidation) step_consolidation ;;
-    6|scaling) step_scaling ;;
+    5|scaling) step_scaling ;;
+    6|consolidation) step_consolidation ;;
     cleanup) step_cleanup ;;
     *) echo "Usage: $0 [1-6|cleanup]"; exit 1 ;;
   esac

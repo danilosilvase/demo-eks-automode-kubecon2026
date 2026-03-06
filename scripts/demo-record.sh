@@ -164,53 +164,8 @@ echo ""
 echo "  ✓ r-family instance selected for memory workload."
 pause
 
-# ─── 5. Consolidation ──────────────────────────────────────────────────────
-header "5. Consolidation"
-
-NODE_BEFORE=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
-run "kubectl get nodes -L karpenter.sh/capacity-type,node.kubernetes.io/instance-type"
-pause 3
-
-run "kubectl scale deployment compute-intensive --replicas=0 -n ${NAMESPACE}"
-run "kubectl scale deployment memory-intensive --replicas=0 -n ${NAMESPACE}"
-
-CONSOLIDATION_START=$(date +%s)
-echo ""
-echo "  ⏱ Waiting for node removal..."
-for i in $(seq 1 24); do
-  sleep 5
-  NOW=$(date +%s)
-  ELAPSED=$(( NOW - CONSOLIDATION_START ))
-  CURRENT=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
-  printf "    [%3ds] Nodes: %s\n" "${ELAPSED}" "${CURRENT}"
-  if [ "${CURRENT}" -lt "${NODE_BEFORE}" ]; then
-    echo ""
-    echo "    ✓ Node removed in ${ELAPSED}s"
-    break
-  fi
-done
-
-for i in $(seq 1 12); do
-  CURRENT=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
-  if [ "${CURRENT}" -le 1 ]; then break; fi
-  sleep 5
-  NOW=$(date +%s)
-  ELAPSED=$(( NOW - CONSOLIDATION_START ))
-  printf "    [%3ds] Nodes: %s\n" "${ELAPSED}" "${CURRENT}"
-done
-
-NOW=$(date +%s)
-TOTAL=$(( NOW - CONSOLIDATION_START ))
-NODE_AFTER=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
-
-run "kubectl get nodes -L karpenter.sh/capacity-type,node.kubernetes.io/instance-type"
-
-echo ""
-echo "  ✓ Nodes: ${NODE_BEFORE} → ${NODE_AFTER}  (${TOTAL}s)"
-pause
-
-# ─── 6. Sub-minute scaling ─────────────────────────────────────────────────
-header "6. Sub-minute scaling"
+# ─── 5. Sub-minute scaling ──────────────────────────────────────────────────
+header "5. Sub-minute scaling"
 
 NODES_BEFORE=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
 PODS_BEFORE=$(kubectl get pods -n ${NAMESPACE} --no-headers | wc -l | tr -d ' ')
@@ -249,6 +204,52 @@ run "kubectl get nodes -L karpenter.sh/capacity-type,node.kubernetes.io/instance
 
 echo ""
 echo "  ✓ Nodes: ${NODES_BEFORE} → ${NODES_AFTER}  |  All 30 pods ready in ${TOTAL}s"
+pause
+
+# ─── 6. Consolidation ──────────────────────────────────────────────────────
+header "6. Consolidation"
+
+NODE_BEFORE=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
+run "kubectl get nodes -L karpenter.sh/capacity-type,node.kubernetes.io/instance-type"
+pause 3
+
+run "kubectl scale deployment compute-intensive --replicas=0 -n ${NAMESPACE}"
+run "kubectl scale deployment memory-intensive --replicas=0 -n ${NAMESPACE}"
+run "kubectl scale deployment sample-app --replicas=3 -n ${NAMESPACE}"
+
+CONSOLIDATION_START=$(date +%s)
+echo ""
+echo "  ⏱ Waiting for node removal..."
+for i in $(seq 1 24); do
+  sleep 5
+  NOW=$(date +%s)
+  ELAPSED=$(( NOW - CONSOLIDATION_START ))
+  CURRENT=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
+  printf "    [%3ds] Nodes: %s\n" "${ELAPSED}" "${CURRENT}"
+  if [ "${CURRENT}" -lt "${NODE_BEFORE}" ]; then
+    echo ""
+    echo "    ✓ Node removed in ${ELAPSED}s"
+    break
+  fi
+done
+
+for i in $(seq 1 12); do
+  CURRENT=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
+  if [ "${CURRENT}" -le 1 ]; then break; fi
+  sleep 5
+  NOW=$(date +%s)
+  ELAPSED=$(( NOW - CONSOLIDATION_START ))
+  printf "    [%3ds] Nodes: %s\n" "${ELAPSED}" "${CURRENT}"
+done
+
+NOW=$(date +%s)
+TOTAL=$(( NOW - CONSOLIDATION_START ))
+NODE_AFTER=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
+
+run "kubectl get nodes -L karpenter.sh/capacity-type,node.kubernetes.io/instance-type"
+
+echo ""
+echo "  ✓ Nodes: ${NODE_BEFORE} → ${NODE_AFTER}  (${TOTAL}s)"
 pause
 
 # ─── Done ───────────────────────────────────────────────────────────────────
