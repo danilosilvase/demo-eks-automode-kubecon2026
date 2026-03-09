@@ -39,5 +39,5 @@ spec:
     budgets:
       - nodes: "10%"
   limits:
-    cpu: "100"
-    memory: 200Gi
+    cpu: "200"
+    memory: 400Gi

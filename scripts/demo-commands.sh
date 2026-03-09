@@ -77,9 +77,8 @@ step_spot_nodepool() {
   for i in $(seq 1 18); do
     sleep 5
     SPOT=$(kubectl get nodes -l karpenter.sh/capacity-type=spot --no-headers 2>/dev/null | wc -l | tr -d ' ')
-    echo "   [$(( i * 5 ))s] Spot nodes: ${SPOT}"
     if [ "${SPOT}" -gt 0 ]; then
-      echo "   ✓ Spot node detected"
+      echo "   ✓ Spot node detected ($(( i * 5 ))s)"
       break
     fi
   done
@@ -261,7 +260,7 @@ step_cleanup() {
 # ─── Menu ────────────────────────────────────────────────────────────────────
 show_menu() {
   echo ""
-  echo "  1:provision  2:spot  3:cpu  4:memory  5:scale  6:consolidate  c:clean  q:quit"
+  echo "  1:provision  2:cpu  3:memory  4:spot  5:scale  6:consolidate  c:clean  q:quit"
   echo ""
 }
 
@@ -272,10 +271,10 @@ if [ -z "$1" ]; then
   while true; do
     read -p "  >> " choice
     case $choice in
-      1) step_simple_workload; echo ""; echo "  next: 2:spot  c:clean" ;;
-      2) step_spot_nodepool; echo ""; echo "  next: 3:cpu  c:clean" ;;
-      3) step_cpu_workload; echo ""; echo "  next: 4:memory  c:clean" ;;
-      4) step_memory_workload; echo ""; echo "  next: 5:scale  c:clean" ;;
+      1) step_simple_workload; echo ""; echo "  next: 2:cpu  c:clean" ;;
+      2) step_cpu_workload; echo ""; echo "  next: 3:memory  c:clean" ;;
+      3) step_memory_workload; echo ""; echo "  next: 4:spot  c:clean" ;;
+      4) step_spot_nodepool; echo ""; echo "  next: 5:scale  c:clean" ;;
       5) step_scaling; echo ""; echo "  next: 6:consolidate  c:clean" ;;
       6) step_consolidation; echo ""; echo "  c:clean  q:quit" ;;
       c|C) step_cleanup; echo ""; echo "  next: 1:provision" ;;
@@ -288,9 +287,9 @@ if [ -z "$1" ]; then
 else
   case $1 in
     1|provision) step_simple_workload ;;
-    2|spot) step_spot_nodepool ;;
-    3|cpu) step_cpu_workload ;;
-    4|memory) step_memory_workload ;;
+    2|cpu) step_cpu_workload ;;
+    3|memory) step_memory_workload ;;
+    4|spot) step_spot_nodepool ;;
     5|scaling) step_scaling ;;
     6|consolidation) step_consolidation ;;
     cleanup) step_cleanup ;;

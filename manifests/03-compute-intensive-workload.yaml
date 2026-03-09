@@ -21,11 +21,11 @@ spec:
       - name: stress
         image: polinux/stress
         command: ["stress"]
-        args: ["--cpu", "4", "--timeout", "3600s", "--verbose"]
+        args: ["--cpu", "2", "--timeout", "3600s", "--verbose"]
         resources:
           requests:
-            cpu: 4000m
-            memory: 256Mi
+            cpu: 2000m
+            memory: 1Gi
           limits:
-            cpu: 4000m
-            memory: 256Mi
+            cpu: 2000m
+            memory: 1Gi
