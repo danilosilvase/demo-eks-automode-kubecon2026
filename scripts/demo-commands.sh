@@ -200,11 +200,9 @@ step_consolidation() {
 
 # ─── 6. Sub-minute scaling ───────────────────────────────────────────────────
 step_scaling() {
-  print_header "Sub-minute scaling"
+  print_header "Rapid scaling"
 
   NODES_BEFORE=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
-  PODS_BEFORE=$(kubectl get pods -n "${NAMESPACE}" --no-headers | wc -l | tr -d ' ')
-  echo "   ${NODES_BEFORE} node(s), ${PODS_BEFORE} pod(s)"
   wait_prompt
 
   SCALE_START=$(date +%s)
