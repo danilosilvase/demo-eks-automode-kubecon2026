@@ -2,18 +2,18 @@
 # =============================================================================
 # EKS Auto Mode Demo — Visual Orchestrator
 # =============================================================================
-# Launches a tmux session with three panes:
+# Launches a tmux session with two panes:
 #
 #   ┌─────────────────────────────────────────┐
 #   │                                         │
 #   │         eks-node-viewer                 │
 #   │    (real-time node utilization bars)    │
 #   │                                         │
-#   ├────────────────────┬────────────────────┤
-#   │                    │                    │
-#   │   k9s (pods view)  │  Command terminal  │
-#   │                    │                    │
-#   └────────────────────┴────────────────────┘
+#   ├─────────────────────────────────────────┤
+#   │                                         │
+#   │         Command terminal                │
+#   │                                         │
+#   └─────────────────────────────────────────┘
 #
 # Usage:
 #   ./demo-visual.sh                    # defaults
@@ -31,7 +31,7 @@ SESSION="eks-demo"
 NAMESPACE="demo-app"
 
 # --- Pre-flight checks ---
-for cmd in tmux eks-node-viewer k9s kubectl; do
+for cmd in tmux eks-node-viewer kubectl; do
   if ! command -v "$cmd" &>/dev/null; then
     echo "ERROR: '$cmd' is not installed. Run ./scripts/setup-tools.sh first."
     exit 1
@@ -50,25 +50,19 @@ echo ""
 
 # --- Create tmux session ---
 # Pane 0: eks-node-viewer (top, full width)
-# Wrapped in a loop so it restarts if it crashes (known bug with 0 nodes)
 tmux new-session -d -s "${SESSION}" -x 220 -y 60 \
   "while true; do eks-node-viewer --kubeconfig ~/.kube/config --node-sort=creation --extra-labels karpenter.sh/capacity-type 2>/dev/null; echo 'eks-node-viewer restarting in 3s...'; sleep 3; done"
 
-# Split bottom half horizontally
-# Pane 1: k9s (bottom-left — narrower, pod list doesn't need much width)
+# Pane 1: Command terminal (bottom, full width)
 tmux split-window -v -t "${SESSION}:0" \
-  "k9s --namespace ${NAMESPACE} --command pods 2>&1 || { echo 'k9s exited. Press Enter to close.'; read; }"
-
-# Pane 2: Command terminal (bottom-right)
-tmux split-window -h -t "${SESSION}:0.1" -l 45% \
   "echo '  Run: ./scripts/demo-commands.sh'; echo ''; exec bash"
 
 # --- Layout ---
-# eks-node-viewer needs ~14 lines minimum to avoid TUI crash
-tmux resize-pane -t "${SESSION}:0.0" -y 14
+# Give the command terminal a fixed height; eks-node-viewer gets the rest
+tmux resize-pane -t "${SESSION}:0.1" -y 40
 
 # Select the command terminal pane
-tmux select-pane -t "${SESSION}:0.2"
+tmux select-pane -t "${SESSION}:0.1"
 
 echo "Attaching to tmux session '${SESSION}'..."
 echo "(Detach with Ctrl+B then D. Kill with: tmux kill-session -t ${SESSION})"
