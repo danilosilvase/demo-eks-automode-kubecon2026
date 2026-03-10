@@ -206,8 +206,8 @@ step_scaling() {
   wait_prompt
 
   SCALE_START=$(date +%s)
-  echo "  \$ kubectl scale deployment sample-app --replicas=100"
-  kubectl scale deployment sample-app --replicas=100 -n "${NAMESPACE}"
+  echo "  \$ kubectl scale deployment sample-app --replicas=50"
+  kubectl scale deployment sample-app --replicas=50 -n "${NAMESPACE}"
 
   echo ""
   for i in $(seq 1 36); do
@@ -216,7 +216,7 @@ step_scaling() {
     ELAPSED=$(( NOW - SCALE_START ))
     CURRENT_NODES=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
     READY_PODS=$(kubectl get pods -n "${NAMESPACE}" -l app=sample-app --no-headers 2>/dev/null | grep Running | wc -l | tr -d " ")
-    printf "   [%3ds] Nodes: %s  Pods: %s/100\n" "${ELAPSED}" "${CURRENT_NODES}" "${READY_PODS}"
+    printf "   [%3ds] Nodes: %s  Pods: %s/50\n" "${ELAPSED}" "${CURRENT_NODES}" "${READY_PODS}"
     if [ "${CURRENT_NODES}" -gt "${NODES_BEFORE}" ]; then
       echo "   ✓ New node in ${ELAPSED}s"
       break
@@ -232,7 +232,7 @@ step_scaling() {
   NODES_AFTER=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
 
   echo ""
-  echo "   ${NODES_BEFORE} → ${NODES_AFTER} nodes | 100 pods in ${TOTAL}s"
+  echo "   ${NODES_BEFORE} → ${NODES_AFTER} nodes | 50 pods in ${TOTAL}s"
   echo "  \$ kubectl get nodes"
   kubectl get nodes -L karpenter.sh/capacity-type,node.kubernetes.io/instance-type
 }

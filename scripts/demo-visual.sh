@@ -53,13 +53,17 @@ echo ""
 tmux new-session -d -s "${SESSION}" -x 220 -y 60 \
   "while true; do eks-node-viewer --kubeconfig ~/.kube/config --node-sort=creation --extra-labels karpenter.sh/capacity-type 2>/dev/null; echo 'eks-node-viewer restarting in 3s...'; sleep 3; done"
 
+# Auto-resize panes when terminal window changes (zoom in/out)
+tmux set-option -g window-size latest
+tmux set-window-option -g aggressive-resize on
+
 # Pane 1: Command terminal (bottom, full width)
 tmux split-window -v -t "${SESSION}:0" \
   "echo '  Run: ./scripts/demo-commands.sh'; echo ''; exec bash"
 
 # --- Layout ---
 # Give the command terminal a fixed height; eks-node-viewer gets the rest
-tmux resize-pane -t "${SESSION}:0.1" -y 40
+tmux resize-pane -t "${SESSION}:0.0" -y 22
 
 # Select the command terminal pane
 tmux select-pane -t "${SESSION}:0.1"
