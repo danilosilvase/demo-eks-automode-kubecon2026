@@ -1,4 +1,4 @@
-# Custom NodePool with Spot + On-Demand for cost optimization demo.
+# Custom NodePool with Spot + On-Demand and x86 + Graviton for the cost optimization demo.
 # The built-in general-purpose pool stays enabled (provides the default NodeClass)
 # but this pool has higher weight so Karpenter prefers it for scheduling.
 #
@@ -29,9 +29,10 @@ spec:
         - key: eks.amazonaws.com/instance-generation
           operator: Gt
           values: ["4"]
+        # Both x86 and AWS Graviton (arm64). Karpenter picks the cheapest fit.
         - key: kubernetes.io/arch
           operator: In
-          values: ["amd64"]
+          values: ["amd64", "arm64"]
       expireAfter: 336h
   disruption:
     consolidationPolicy: WhenEmptyOrUnderutilized

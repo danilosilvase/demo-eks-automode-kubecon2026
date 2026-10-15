@@ -1,0 +1,35 @@
+# Same container image as sample-app, pinned to AWS Graviton (arm64).
+# The nginx image is multi-arch, so nothing is rebuilt. The cost-optimized
+# NodePool already allows arm64, so Karpenter launches a Graviton node
+# (Spot when available) for these pods.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-app-graviton
+  namespace: demo-app
+  labels:
+    app: sample-app-graviton
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: sample-app-graviton
+  template:
+    metadata:
+      labels:
+        app: sample-app-graviton
+    spec:
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      containers:
+      - name: nginx
+        image: public.ecr.aws/nginx/nginx:1.28
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi

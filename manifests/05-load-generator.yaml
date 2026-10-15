@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: busybox
-        image: busybox:latest
+        image: public.ecr.aws/docker/library/busybox:1.37
         command: ["/bin/sh"]
         args:
         - -c
