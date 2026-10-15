@@ -11,8 +11,8 @@ kubectl apply -f manifests/03-compute-intensive-workload.yaml
 ```
 
 Workload details:
-- 2 replicas, 2 CPU cores per pod (4 cores total), 512Mi memory
-- High CPU-to-memory ratio → triggers c-family (compute-optimized) selection
+- 2 replicas, 2 CPU cores per pod (4 cores total), 1Gi memory
+- High CPU-to-memory ratio, so Karpenter usually picks a c-family (compute-optimized) instance
 
 ### Step 2: Deploy Memory-Intensive Workload
 ```bash
@@ -21,7 +21,7 @@ kubectl apply -f manifests/04-memory-intensive-workload.yaml
 
 Workload details:
 - 2 replicas, 250m CPU per pod, 8Gi memory per pod (16Gi total)
-- High memory-to-CPU ratio → triggers r-family (memory-optimized) selection
+- High memory-to-CPU ratio, so Karpenter usually picks an r-family (memory-optimized) instance
 
 ### Step 3: Watch Node Provisioning
 ```bash
@@ -31,14 +31,15 @@ kubectl get nodes -w
 Expected timeline:
 - T+0s: Commands executed
 - T+45-60s: New nodes appear and become Ready
-- Compute workload → c-family instance (e.g., c6a.2xlarge)
-- Memory workload → r-family instance (e.g., r5a.large)
+- Karpenter picks the cheapest instance that fits each workload, x86 or AWS Graviton, Spot when available
+- The demo scripts print the instance type, architecture and capacity type actually chosen
 
 ### Step 4: Verify Instance Family Selection
 ```bash
 kubectl get nodes -o custom-columns=\
 NAME:.metadata.name,\
 INSTANCE-TYPE:.metadata.labels.node\\.kubernetes\\.io/instance-type,\
+ARCH:.metadata.labels.kubernetes\\.io/arch,\
 CAPACITY:.metadata.labels.karpenter\\.sh/capacity-type
 ```
 
@@ -49,14 +50,14 @@ Expected: Different instance families selected for each workload type
 kubectl get pods -n demo-app -o wide
 ```
 
-Expected: Compute pods on c-family nodes, memory pods on r-family nodes
+Expected: compute and memory pods on different instance families, matched to their requests
 
 ## Talking Points
 
 - "We deployed two workloads with very different resource profiles"
 - "Karpenter analyzed the CPU and memory requirements independently"
-- "Compute workload got a c-family instance — optimized for CPU"
-- "Memory workload got an r-family instance — optimized for memory"
+- "Each workload got an instance shaped for it, and we never named an instance type"
+- "Graviton is in the mix too, because the NodePool allows arm64"
 - "No manual instance type configuration — Auto Mode figured it out"
 - "This avoids over-provisioning: you don't pay for memory you don't need on compute nodes, or CPU you don't need on memory nodes"
 

@@ -1,25 +1,28 @@
-# EKS Auto Mode Demo — KubeCon 2026
+# EKS Auto Mode Demo: KubeCon 2026
 
-Live demo showcasing EKS Auto Mode cost optimization on Kubernetes 1.35.
+Booth demo showing Amazon EKS Auto Mode cost optimization with EC2 Spot and AWS Graviton, on Kubernetes 1.37.
+
+**What "zero config" means here.** On plain Kubernetes you install Karpenter, configure it, tune consolidation and keep upgrading it. With EKS Auto Mode, Karpenter is managed by AWS and runs with best-practice defaults, so you deploy a pod and get a node. Choosing Spot and Graviton is one NodePool on top of that.
 
 ## Demo Flow
 
 | Step | What happens | What the audience sees |
 |------|-------------|----------------------|
-| 1. Zero-config provisioning | Deploy app, node appears automatically | ⏱ Timer: node + pods ready in ~60s |
-| 2. Spot NodePool | Apply one manifest, nodes switch to Spot | eks-node-viewer shows Spot label |
-| 3. CPU-intensive workload | Deploy 2-core pods | c-family instance selected |
-| 4. Memory-intensive workload | Deploy 8Gi pods | r-family instance selected |
-| 5. Consolidation | Scale down, nodes drain | ⏱ Timer: nodes removed in ~60s |
-| 6. Sub-minute scaling | Scale to 30 replicas | ⏱ Timer: new node in <60s |
+| 1. Zero config | Deploy an app, Auto Mode's managed Karpenter launches a node | Timer: node and pods ready |
+| 2. Spot + Graviton NodePool | Apply one NodePool allowing Spot/On-Demand and amd64/arm64 | eks-node-viewer shows capacity type and architecture |
+| 3. CPU-intensive workload | Deploy 2-core pods | The instance Karpenter picked, read live from the node labels |
+| 4. Memory-intensive workload | Deploy 8Gi pods | The instance Karpenter picked, read live from the node labels |
+| 5. Same app, Graviton | Same multi-arch nginx image, pinned to arm64 | A Graviton node, no image rebuild |
+| 6. Sub-minute scaling | Scale to 30 replicas | Timer: new node and all pods ready |
+| 7. Consolidation | Scale down | Timer: unused nodes removed |
 
 ## Requirements
 
 ### AWS Account
 
-- Permissions to create: EKS clusters, VPCs, NAT Gateways, IAM roles, CloudWatch dashboards, EKS addons
+- Permissions to create: EKS clusters, VPCs, NAT Gateways, IAM roles
 - AWS CLI configured (`aws sts get-caller-identity` should succeed)
-- Region: eu-central-1 with sufficient quotas (~8 vCPUs on-demand + Spot)
+- Region: us-west-2 (Oregon) with Spot and On-Demand quota for about 8 vCPUs
 
 ### CLI Tools
 
@@ -28,21 +31,14 @@ Live demo showcasing EKS Auto Mode cost optimization on Kubernetes 1.35.
 | AWS CLI v2 | [Install guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) |
 | Terraform >= 1.0 | `brew install terraform` |
 | kubectl >= 1.28 | `brew install kubectl` |
-| tmux | `brew install tmux` |
-| k9s | `brew install derailed/k9s/k9s` |
-| eks-node-viewer | `brew install aws/tap/eks-node-viewer` |
+| tmux | `brew install tmux` or your Linux package manager |
+| eks-node-viewer | `brew install aws/tap/eks-node-viewer` or the Linux release binary |
 
-Or run `./scripts/setup-tools.sh` to install tmux, k9s, and eks-node-viewer.
-
-### Local Environment
-
-- macOS or Linux (bash)
-- Terminal at least 200 columns wide
-- ~2 GB free disk space
+Or run `./scripts/setup-tools.sh`. On macOS it uses Homebrew. On Linux, including the EKS Workshop browser IDE, it installs tmux with the package manager and downloads the eks-node-viewer release binary to `~/.local/bin`.
 
 ### Cost
 
-~$1-3 USD for a 1-hour demo session.
+About $1-3 USD for a 1-hour demo session.
 
 ## Quick Start
 
@@ -55,89 +51,60 @@ terraform plan -out=tfplan
 terraform apply tfplan
 ```
 
-Creates VPC, EKS cluster with Auto Mode, Container Insights addon, and CloudWatch dashboard.
+Creates a VPC and an EKS cluster with Auto Mode enabled.
 
 ### 2. Configure kubectl
 
 ```bash
-aws eks update-kubeconfig --region eu-central-1 --name eks-auto-demo
+aws eks update-kubeconfig --region us-west-2 --name eks-auto-demo
 ```
 
-### 3. Launch visual layout
+### 3. Launch the booth layout
 
 ```bash
 ./scripts/demo-visual.sh
 ```
 
-Or set up manually:
-
-```bash
-# Terminal 1: eks-node-viewer
-eks-node-viewer --node-sort=creation --extra-labels karpenter.sh/capacity-type
-
-# Terminal 2: k9s
-k9s --namespace demo-app --command pods
-
-# Terminal 3: demo commands
-cd /path/to/demo-eks-automode-kubecon2026
-./scripts/demo-commands.sh
-```
-
-If using tmux manually:
-
-```bash
-tmux new-session -s eks-demo
-# Ctrl+B then " to split horizontally
-# Ctrl+B then % to split vertically
-# Ctrl+B then arrow keys to navigate panes
-# Run each tool in its own pane
-```
-
-Re-attach to an existing session: `tmux attach-session -t eks-demo`
-
-Opens a tmux session:
+Opens a two-pane tmux session sized to the current terminal:
 
 ```
 ┌─────────────────────────────────────────┐
-│      eks-node-viewer (14 rows)          │
-│  node bars, instance types, Spot/OD     │
-├──────────────┬──────────────────────────┤
-│              │                          │
-│  k9s (pods)  │    Command terminal      │
-│              │    (60% width)           │
-│              │                          │
-└──────────────┴──────────────────────────┘
+│  eks-node-viewer (22 rows)              │
+│  nodes, instance type, Spot/On-Demand,  │
+│  arm64/amd64, price per node            │
+├─────────────────────────────────────────┤
+│  Command terminal                       │
+└─────────────────────────────────────────┘
 ```
 
-eks-node-viewer auto-restarts if it crashes (known issue with 0 nodes).
+eks-node-viewer auto-restarts if it crashes (known issue with 0 nodes). Re-attach with `tmux attach-session -t eks-demo`.
 
-### 4. Open CloudWatch dashboard
-
-```
-https://eu-central-1.console.aws.amazon.com/cloudwatch/home?region=eu-central-1#dashboards/dashboard/EKS-AutoMode-Demo-eks-auto-demo
-```
-
-### 5. Run the demo
-
-From the command terminal pane:
+To run it without tmux, start these in two terminals:
 
 ```bash
-# Interactive — step through manually
+eks-node-viewer --node-sort=creation --extra-labels karpenter.sh/capacity-type,kubernetes.io/arch
+./scripts/demo-commands.sh
+```
+
+### 4. Run the demo
+
+```bash
+# Interactive: step through manually
 ./scripts/demo-commands.sh
 
-# Auto-run — for screen recording
+# Auto-run: for the silent, captioned booth recording
 ./scripts/demo-record.sh
 ```
 
 Interactive prompt:
 ```
-1:provision  2:spot  3:cpu  4:memory  5:consolidate  6:scale  c:clean  q:quit
+1:provision  2:spot+graviton  3:cpu  4:memory  5:graviton  6:scale  7:consolidate  c:clean  q:quit
 >> 1
 ```
 
-Type the number, each step clears the screen. After each step it hints the next one. Type `c` anytime to reset. Type `h` for the full menu.
+Type the number. Each step clears the screen and hints the next one. Type `c` anytime to reset, `h` for the menu.
 
-### 6. Recording mode
+### 5. Recording mode
 
 Start screen recording, then:
 
@@ -147,7 +114,19 @@ PAUSE=5 ./scripts/demo-record.sh  # faster
 PAUSE=15 ./scripts/demo-record.sh # slower
 ```
 
-Runs all 6 steps with simulated typing and live timers.
+Runs all 7 steps with simulated typing, live timers and one caption per step. Captions only show numbers measured during the run.
+
+## Running on the EKS Workshop cluster (booth live backup)
+
+The demo also runs on the EKS Workshop Auto Mode cluster. The workshop's Auto Mode setup creates the `default` NodeClass that the `cost-optimized` NodePool references, so the manifests apply unchanged. That cluster runs Kubernetes 1.35; the demo steps behave the same.
+
+```bash
+git clone https://github.com/danilosilvase/demo-eks-automode-kubecon2026
+cd demo-eks-automode-kubecon2026
+./scripts/setup-tools.sh
+export PATH="$HOME/.local/bin:$PATH"
+./scripts/demo-visual.sh "${EKS_CLUSTER_AUTO_NAME}" "${AWS_REGION}"
+```
 
 ## Resetting the demo
 
@@ -160,10 +139,10 @@ Then start fresh from step 1.
 
 ## Use Case Documentation
 
-1. [Spot Integration](docs-use-case-1-spot-integration.md) — Custom NodePool with Spot + On-Demand
-2. [Intelligent Instance Selection](docs-use-case-2-intelligent-selection.md) — c-family for CPU, r-family for memory
-3. [Consolidation](docs-use-case-3-consolidation.md) — Automatic node removal on scale-down
-4. [Sub-Minute Scaling](docs-use-case-4-sub-minute-scaling.md) — Node provisioning in <60s
+1. [Spot Integration](docs-use-case-1-spot-integration.md): custom NodePool with Spot + On-Demand
+2. [Intelligent Instance Selection](docs-use-case-2-intelligent-selection.md): instance family follows the pod's CPU-to-memory ratio
+3. [Consolidation](docs-use-case-3-consolidation.md): automatic node removal on scale-down
+4. [Sub-minute Scaling](docs-use-case-4-sub-minute-scaling.md): new capacity on a traffic spike
 
 Additional:
 - [Business Summary](DEMO-BUSINESS-SUMMARY.md)
@@ -175,25 +154,26 @@ Additional:
 .
 ├── terraform/
 │   ├── main.tf                 # EKS cluster with Auto Mode
-│   ├── cloudwatch.tf           # Container Insights + dashboard
+│   ├── cloudwatch.tf           # Container Insights + dashboard (disabled)
 │   ├── variables.tf / outputs.tf / versions.tf
 ├── cloudwatch/
 │   ├── dashboard.json          # CloudWatch dashboard definition
 │   ├── deploy-dashboard.sh     # Standalone deploy
 │   └── cleanup-dashboard.sh
 ├── manifests/
-│   ├── 00-cost-optimized-nodepool.yaml  # Spot + On-Demand NodePool
+│   ├── 00-cost-optimized-nodepool.yaml     # Spot + On-Demand, amd64 + arm64
 │   ├── 01-namespace.yaml
-│   ├── 02-sample-app.yaml               # 3 replicas, nginx
-│   ├── 03-compute-intensive-workload.yaml  # 2 CPU cores/pod
-│   ├── 04-memory-intensive-workload.yaml   # 8Gi memory/pod
+│   ├── 02-sample-app.yaml                  # 3 replicas, nginx (ECR Public)
+│   ├── 03-compute-intensive-workload.yaml  # 2 CPU cores/pod, multi-arch stress-ng
+│   ├── 04-memory-intensive-workload.yaml   # 8Gi memory/pod, multi-arch stress-ng
 │   ├── 05-load-generator.yaml
-│   └── 06-pod-disruption-budget.yaml
+│   ├── 06-pod-disruption-budget.yaml
+│   └── 07-graviton-workload.yaml           # same nginx image, pinned to arm64
 ├── scripts/
-│   ├── setup-tools.sh          # Install visualization tools
-│   ├── demo-visual.sh          # Launch tmux layout
+│   ├── setup-tools.sh          # Install tmux + eks-node-viewer (macOS or Linux)
+│   ├── demo-visual.sh          # Launch the two-pane booth layout
 │   ├── demo-commands.sh        # Interactive demo runner
-│   └── demo-record.sh          # Auto-run for recording
+│   └── demo-record.sh          # Auto-run for the captioned recording
 └── docs-*.md
 ```
 
@@ -208,4 +188,4 @@ cd terraform
 terraform destroy -auto-approve
 ```
 
-~4 minutes.
+About 4 minutes.

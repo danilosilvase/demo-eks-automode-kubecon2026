@@ -5,7 +5,7 @@
 
 ## Overview
 
-This demo showcases Amazon EKS Auto Mode's intelligent infrastructure management capabilities that deliver significant cost savings and operational efficiency improvements. Running on **Kubernetes 1.35**, the latest version, we'll demonstrate four key cost optimization features that work automatically without manual intervention.
+This demo showcases Amazon EKS Auto Mode's intelligent infrastructure management capabilities that deliver significant cost savings and operational efficiency improvements. Running on **Kubernetes 1.37**, we'll demonstrate four key cost optimization features that work automatically without manual intervention.
 
 **Total Demo Time:** 12-15 minutes live demonstration
 
@@ -133,8 +133,8 @@ We'll execute a scale-up command, time the provisioning process, and show how qu
 
 **Cluster Details:**
 - Name: eks-auto-demo
-- Region: eu-central-1 (Frankfurt)
-- Kubernetes Version: 1.35 (latest)
+- Region: us-west-2 (Oregon)
+- Kubernetes Version: 1.37
 - Auto Mode: Enabled with general-purpose and system node pools
 
 **Demo Workloads:**
@@ -154,4 +154,4 @@ We'll execute a scale-up command, time the provisioning process, and show how qu
 
 4. **Production Ready:** Built on AWS's proven infrastructure with enterprise-grade reliability
 
-5. **Latest Technology:** Running Kubernetes 1.35, ensuring access to the newest features and security updates
+5. **Current Kubernetes:** Running Kubernetes 1.37 under EKS standard support

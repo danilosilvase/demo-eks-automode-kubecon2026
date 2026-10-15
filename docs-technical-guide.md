@@ -1,4 +1,4 @@
-# EKS Auto Mode Demo — Technical Guide
+# EKS Auto Mode Demo: Technical Guide
 
 ## Infrastructure Setup (~10 min)
 
@@ -7,107 +7,109 @@ cd terraform
 terraform init
 terraform plan -out=tfplan
 terraform apply tfplan
-aws eks update-kubeconfig --region eu-central-1 --name eks-auto-demo
+aws eks update-kubeconfig --region us-west-2 --name eks-auto-demo
 ```
 
-Creates: VPC, NAT Gateway, EKS cluster (K8s 1.35), Container Insights addon, CloudWatch dashboard.
+Creates: VPC, NAT Gateway, EKS cluster with Auto Mode (Kubernetes 1.37).
 
-Result: Cluster ready, 0 nodes (nodes provision on workload demand).
+Result: cluster ready with 0 nodes. Nodes launch when workloads need them.
 
-## Demo Flow (12-15 min)
+## Demo Flow
 
-### Step 1: Zero-config provisioning (2-3 min)
+### Step 1: Zero config
 
-Deploy namespace + sample app. Auto Mode provisions a node automatically.
+Deploy the namespace and sample app. Auto Mode's managed Karpenter launches a node.
 
 ```bash
 kubectl apply -f manifests/01-namespace.yaml
 kubectl apply -f manifests/02-sample-app.yaml
 ```
 
-Live timer shows node + pod readiness. Expected: ~60s for node, ~70s for all 3 pods.
+The live timer shows node and pod readiness.
 
-Talking point: "Zero configuration — deploy a workload, get a node."
+Talking point: "No Karpenter to install, configure or upgrade. Deploy a workload, get a node."
 
-### Step 2: Spot NodePool (2-3 min)
+### Step 2: Spot + Graviton NodePool
 
-Apply the custom `cost-optimized` NodePool with Spot + On-Demand.
+Apply the custom `cost-optimized` NodePool. It allows Spot and On-Demand, and both amd64 and arm64 (AWS Graviton).
 
 ```bash
 kubectl apply -f manifests/00-cost-optimized-nodepool.yaml
 ```
 
-Karpenter consolidates existing on-demand node to Spot. Live timer tracks Spot node appearance.
+The built-in Auto Mode NodePools are On-Demand only. This NodePool has a higher weight, so Karpenter prefers it and replaces the On-Demand node with Spot. The live timer tracks the Spot node.
 
-Talking point: "One manifest — that's all it takes to enable Spot."
+Talking point: "Spot and Graviton are one NodePool. Karpenter is already running."
 
-### Step 3: CPU-intensive workload (2-3 min)
+### Step 3: CPU-intensive workload
 
-Deploy 2 replicas × 2 CPU cores each.
+Deploy 2 replicas with 2 CPU cores each.
 
 ```bash
 kubectl apply -f manifests/03-compute-intensive-workload.yaml
 ```
 
-Expected: Karpenter provisions a c-family (compute-optimized) Spot instance.
+Karpenter picks the cheapest instance that fits a high CPU-to-memory ratio. The script prints the instance type, architecture and capacity type it actually chose.
 
-Talking point: "High CPU demand → c-family instance, automatically."
+Talking point: "We never named an instance type. Karpenter read the pod requests."
 
-### Step 4: Memory-intensive workload (2-3 min)
+### Step 4: Memory-intensive workload
 
-Deploy 2 replicas × 8Gi memory each.
+Deploy 2 replicas with 8Gi memory each.
 
 ```bash
 kubectl apply -f manifests/04-memory-intensive-workload.yaml
 ```
 
-Expected: Karpenter provisions an r-family (memory-optimized) Spot instance.
+The script prints the instance Karpenter chose for the memory-heavy pods.
 
-Talking point: "High memory demand → r-family instance. Different workload, different instance."
+Talking point: "Different workload shape, different instance, same NodePool."
 
-### Step 5: Consolidation (3-4 min)
+### Step 5: Same app, Graviton
 
-Scale down compute + memory workloads to 0.
+Deploy the same nginx image as the sample app, pinned to arm64.
 
 ```bash
-kubectl scale deployment compute-intensive --replicas=0 -n demo-app
-kubectl scale deployment memory-intensive --replicas=0 -n demo-app
+kubectl apply -f manifests/07-graviton-workload.yaml
 ```
 
-Live timer tracks node removal. Expected: ~60-90s for full consolidation.
+The image is multi-arch, so nothing is rebuilt. Karpenter launches a Graviton node, Spot when available.
 
-Talking point: "Nodes drain automatically — 40-60% savings during off-peak."
+Talking point: "Same container image, now on Graviton. One line in the pod spec."
 
-### Step 6: Sub-minute scaling (2-3 min)
+### Step 6: Sub-minute scaling
 
-Scale sample-app to 30 replicas.
+Scale the sample app to 30 replicas.
 
 ```bash
 kubectl scale deployment sample-app --replicas=30 -n demo-app
 ```
 
-Live timer tracks new node provisioning. Expected: <60s for new node, ~75s for all pods.
+The live timer tracks the new node and pod readiness.
 
-Talking point: "Traffic spike → new capacity in under a minute."
+Talking point: "Traffic spike, new capacity in under a minute."
 
-## Timing Summary
+### Step 7: Consolidation
 
-| Step | Action | Expected Time |
-|------|--------|--------------|
-| 1. Provision | Deploy app → node + pods ready | ~60-70s |
-| 2. Spot | Apply NodePool → Spot node appears | ~60-90s |
-| 3. CPU workload | Deploy → c-family node ready | ~45-60s |
-| 4. Memory workload | Deploy → r-family node ready | ~45-60s |
-| 5. Consolidation | Scale down → nodes removed | ~60-90s |
-| 6. Scaling | Scale to 30 → new node + all pods | ~60-75s |
+Scale the CPU, memory and Graviton workloads to 0 and the sample app back to 3.
+
+```bash
+kubectl scale deployment compute-intensive --replicas=0 -n demo-app
+kubectl scale deployment memory-intensive --replicas=0 -n demo-app
+kubectl scale deployment sample-app-graviton --replicas=0 -n demo-app
+kubectl scale deployment sample-app --replicas=3 -n demo-app
+```
+
+The live timer tracks node removal.
+
+Talking point: "Nodes nobody needs are drained and removed. You stop paying for them."
 
 ## Visual Tools
 
 | Tool | Pane | Shows |
 |------|------|-------|
-| eks-node-viewer | tmux top (14 rows) | Node bars, instance types, Spot/OD, cost |
-| k9s | tmux bottom-left | Pod lifecycle, status, namespace view |
-| CloudWatch | Browser tab | Node count, CPU/memory, pod count over time |
+| eks-node-viewer | tmux top (22 rows) | Node bars, instance types, Spot/On-Demand, arm64/amd64, price per node |
+| Command terminal | tmux bottom | Demo steps, timers, captions |
 
 ## Cleanup
 
@@ -128,7 +130,4 @@ tmux kill-session -t eks-demo
 
 ## Backup Plan
 
-If live demo fails:
-1. Pre-recorded terminal session via `./scripts/demo-record.sh`
-2. CloudWatch dashboard screenshots
-3. Key metrics to reference: provisioning <60s, consolidation ~90s
+If the live demo fails, play the captioned recording made with `./scripts/demo-record.sh`.
