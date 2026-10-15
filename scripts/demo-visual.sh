@@ -2,12 +2,13 @@
 # =============================================================================
 # EKS Auto Mode Demo — Visual Orchestrator
 # =============================================================================
-# Launches a tmux session with two panes:
+# Launches the two-pane booth layout in tmux:
 #
 #   ┌─────────────────────────────────────────┐
 #   │                                         │
 #   │         eks-node-viewer                 │
-#   │    (real-time node utilization bars)    │
+#   │  nodes, instance type, Spot/On-Demand,  │
+#   │  arm64/amd64 and price per node         │
 #   │                                         │
 #   ├─────────────────────────────────────────┤
 #   │                                         │
@@ -26,7 +27,7 @@
 set -e
 
 CLUSTER_NAME="${1:-eks-auto-demo}"
-REGION="${2:-eu-central-1}"
+REGION="${2:-us-west-2}"
 SESSION="eks-demo"
 NAMESPACE="demo-app"
 
@@ -50,8 +51,12 @@ echo ""
 
 # --- Create tmux session ---
 # Pane 0: eks-node-viewer (top, full width)
-tmux new-session -d -s "${SESSION}" -x 220 -y 60 \
-  "while true; do eks-node-viewer --kubeconfig ~/.kube/config --node-sort=creation --extra-labels karpenter.sh/capacity-type 2>/dev/null; echo 'eks-node-viewer restarting in 3s...'; sleep 3; done"
+# Size the session to the current terminal so it also fits the
+# EKS Workshop browser IDE, which is narrower than a full-screen terminal.
+COLS="$(tput cols 2>/dev/null || echo 160)"
+ROWS="$(tput lines 2>/dev/null || echo 45)"
+tmux new-session -d -s "${SESSION}" -x "${COLS}" -y "${ROWS}" \
+  "while true; do eks-node-viewer --kubeconfig ~/.kube/config --node-sort=creation --extra-labels karpenter.sh/capacity-type,kubernetes.io/arch 2>/dev/null; echo 'eks-node-viewer restarting in 3s...'; sleep 3; done"
 
 # Auto-resize panes when terminal window changes (zoom in/out)
 tmux set-option -g window-size latest
@@ -62,7 +67,7 @@ tmux split-window -v -t "${SESSION}:0" \
   "echo '  Run: ./scripts/demo-commands.sh'; echo ''; exec bash"
 
 # --- Layout ---
-# Give the command terminal a fixed height; eks-node-viewer gets the rest
+# eks-node-viewer gets a fixed 22 rows (tested size, avoids TUI crash); commands get the rest
 tmux resize-pane -t "${SESSION}:0.0" -y 22
 
 # Select the command terminal pane

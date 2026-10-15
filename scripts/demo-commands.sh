@@ -23,9 +23,23 @@ wait_prompt() {
   echo ""
 }
 
+# Show the nodes a given app's pods landed on: instance type, CPU architecture,
+# Spot or On-Demand. Prints what actually happened, never an assumed family.
+show_placement() {
+  local app="$1"
+  local nodes
+  nodes=$(kubectl get pods -n "${NAMESPACE}" -l app="${app}" \
+    -o jsonpath='{range .items[*]}{.spec.nodeName}{"\n"}{end}' 2>/dev/null | sort -u | tr '\n' ' ')
+  if [ -n "${nodes// /}" ]; then
+    echo "  \$ kubectl get nodes (where ${app} runs)"
+    # shellcheck disable=SC2086
+    kubectl get nodes ${nodes} -L node.kubernetes.io/instance-type,kubernetes.io/arch,karpenter.sh/capacity-type
+  fi
+}
+
 # ─── 1. Zero-config provisioning ─────────────────────────────────────────────
 step_simple_workload() {
-  print_header "Zero-config provisioning"
+  print_header "Zero config: no Karpenter to install or run"
 
   echo "  \$ kubectl apply -f 01-namespace.yaml"
   kubectl apply -f "${MANIFESTS_DIR}/01-namespace.yaml"
@@ -56,9 +70,9 @@ step_simple_workload() {
   kubectl get pods -n "${NAMESPACE}" -o wide
 }
 
-# ─── 2. Enable Spot with a custom NodePool ───────────────────────────────────
+# ─── 2. Spot + Graviton with one NodePool ────────────────────────────────────
 step_spot_nodepool() {
-  print_header "Enable Spot with a custom NodePool"
+  print_header "Spot + Graviton: one NodePool, Karpenter already there"
 
   echo "  \$ kubectl get nodepools"
   kubectl get nodepools
@@ -110,12 +124,7 @@ step_cpu_workload() {
   done
 
   echo ""
-  echo "  \$ kubectl get nodes"
-  kubectl get nodes -o custom-columns=\
-NAME:.metadata.name,\
-INSTANCE-TYPE:.metadata.labels.node\\.kubernetes\\.io/instance-type,\
-CAPACITY:.metadata.labels.karpenter\\.sh/capacity-type,\
-POOL:.metadata.labels.karpenter\\.sh/nodepool
+  show_placement compute-intensive
 }
 
 # ─── 4. Memory-intensive workload ────────────────────────────────────────────
@@ -140,15 +149,35 @@ step_memory_workload() {
   done
 
   echo ""
-  echo "  \$ kubectl get nodes"
-  kubectl get nodes -o custom-columns=\
-NAME:.metadata.name,\
-INSTANCE-TYPE:.metadata.labels.node\\.kubernetes\\.io/instance-type,\
-CAPACITY:.metadata.labels.karpenter\\.sh/capacity-type,\
-POOL:.metadata.labels.karpenter\\.sh/nodepool
+  show_placement memory-intensive
 }
 
-# ─── 5. Consolidation ────────────────────────────────────────────────────────
+# ─── 5. Same app on Graviton ─────────────────────────────────────────────────
+step_graviton() {
+  print_header "Same app, Graviton (arm64): no rebuild"
+
+  GRAV_START=$(date +%s)
+  echo "  \$ kubectl apply -f 07-graviton-workload.yaml"
+  kubectl apply -f "${MANIFESTS_DIR}/07-graviton-workload.yaml"
+
+  echo ""
+  for i in $(seq 1 24); do
+    sleep 5
+    NOW=$(date +%s)
+    ELAPSED=$(( NOW - GRAV_START ))
+    READY=$(kubectl get pods -n "${NAMESPACE}" -l app=sample-app-graviton --no-headers 2>/dev/null | grep Running | wc -l | tr -d " ")
+    printf "   [%3ds] Pods: %s/3\n" "${ELAPSED}" "${READY}"
+    if [ "${READY}" -ge 3 ]; then
+      echo "   ✓ Ready in ${ELAPSED}s"
+      break
+    fi
+  done
+
+  echo ""
+  show_placement sample-app-graviton
+}
+
+# ─── 7. Consolidation ────────────────────────────────────────────────────────
 step_consolidation() {
   print_header "Consolidation"
 
@@ -162,6 +191,8 @@ step_consolidation() {
   kubectl scale deployment compute-intensive --replicas=0 -n "${NAMESPACE}"
   echo "  \$ kubectl scale deployment memory-intensive --replicas=0"
   kubectl scale deployment memory-intensive --replicas=0 -n "${NAMESPACE}"
+  echo "  \$ kubectl scale deployment sample-app-graviton --replicas=0"
+  kubectl scale deployment sample-app-graviton --replicas=0 -n "${NAMESPACE}" 2>/dev/null || true
   echo "  \$ kubectl scale deployment sample-app --replicas=3"
   kubectl scale deployment sample-app --replicas=3 -n "${NAMESPACE}"
 
@@ -258,7 +289,7 @@ step_cleanup() {
 # ─── Menu ────────────────────────────────────────────────────────────────────
 show_menu() {
   echo ""
-  echo "  1:provision  2:cpu  3:memory  4:spot  5:scale  6:consolidate  c:clean  q:quit"
+  echo "  1:provision  2:spot+graviton  3:cpu  4:memory  5:graviton  6:scale  7:consolidate  c:clean  q:quit"
   echo ""
 }
 
@@ -269,12 +300,13 @@ if [ -z "$1" ]; then
   while true; do
     read -p "  >> " choice
     case $choice in
-      1) step_simple_workload; echo ""; echo "  next: 2:cpu  c:clean" ;;
-      2) step_cpu_workload; echo ""; echo "  next: 3:memory  c:clean" ;;
-      3) step_memory_workload; echo ""; echo "  next: 4:spot  c:clean" ;;
-      4) step_spot_nodepool; echo ""; echo "  next: 5:scale  c:clean" ;;
-      5) step_scaling; echo ""; echo "  next: 6:consolidate  c:clean" ;;
-      6) step_consolidation; echo ""; echo "  c:clean  q:quit" ;;
+      1) step_simple_workload; echo ""; echo "  next: 2:spot+graviton  c:clean" ;;
+      2) step_spot_nodepool; echo ""; echo "  next: 3:cpu  c:clean" ;;
+      3) step_cpu_workload; echo ""; echo "  next: 4:memory  c:clean" ;;
+      4) step_memory_workload; echo ""; echo "  next: 5:graviton  c:clean" ;;
+      5) step_graviton; echo ""; echo "  next: 6:scale  c:clean" ;;
+      6) step_scaling; echo ""; echo "  next: 7:consolidate  c:clean" ;;
+      7) step_consolidation; echo ""; echo "  c:clean  q:quit" ;;
       c|C) step_cleanup; echo ""; echo "  next: 1:provision" ;;
       q|Q) exit 0 ;;
       ""|n|N) ;;
@@ -285,12 +317,13 @@ if [ -z "$1" ]; then
 else
   case $1 in
     1|provision) step_simple_workload ;;
-    2|cpu) step_cpu_workload ;;
-    3|memory) step_memory_workload ;;
-    4|spot) step_spot_nodepool ;;
-    5|scaling) step_scaling ;;
-    6|consolidation) step_consolidation ;;
+    2|spot) step_spot_nodepool ;;
+    3|cpu) step_cpu_workload ;;
+    4|memory) step_memory_workload ;;
+    5|graviton) step_graviton ;;
+    6|scaling) step_scaling ;;
+    7|consolidation) step_consolidation ;;
     cleanup) step_cleanup ;;
-    *) echo "Usage: $0 [1-6|cleanup]"; exit 1 ;;
+    *) echo "Usage: $0 [1-7|cleanup]"; exit 1 ;;
   esac
 fi

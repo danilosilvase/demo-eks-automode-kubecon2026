@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# EKS Auto Mode Demo — Auto-run for recording
+# EKS Auto Mode Demo: auto-run for the silent booth recording
 # =============================================================================
 # Usage:
 #   ./scripts/demo-record.sh              # 10s pauses (default)
@@ -43,13 +43,34 @@ header() {
   sleep 2
 }
 
+# Silent booth captions: one bold line per step. Numbers shown here come from
+# the run itself (timers, node labels), never from hard-coded claims.
+caption() {
+  echo ""
+  printf "  \033[1;33m▶ %s\033[0m\n" "$1"
+}
+
+# One-line summary of where an app's pods run, e.g. "c7g.xlarge arm64 spot"
+placement() {
+  local app="$1" nodes
+  nodes=$(kubectl get pods -n "${NAMESPACE}" -l app="${app}" \
+    -o jsonpath='{range .items[*]}{.spec.nodeName}{"\n"}{end}' 2>/dev/null | sort -u | tr '\n' ' ')
+  [ -z "${nodes// /}" ] && return 0
+  # shellcheck disable=SC2086
+  kubectl get nodes ${nodes} --no-headers -o custom-columns=\
+T:.metadata.labels.node\\.kubernetes\\.io/instance-type,\
+A:.metadata.labels.kubernetes\\.io/arch,\
+C:.metadata.labels.karpenter\\.sh/capacity-type \
+    | awk '{print $1" "$2" "$3}' | sort -u | paste -sd ',' - | sed 's/,/, /g'
+}
+
 # =============================================================================
 echo ""
 echo "  Starting demo recording in 3 seconds..."
 sleep 3
 
 # ─── 1. Zero-config provisioning ────────────────────────────────────────────
-header "1. Zero-config provisioning"
+header "1. Zero config: deploy an app, get a node"
 
 run "kubectl apply -f ${MANIFESTS_DIR}/01-namespace.yaml"
 
@@ -77,12 +98,11 @@ run "kubectl get nodes -L karpenter.sh/capacity-type,karpenter.sh/nodepool,node.
 pause 3
 run "kubectl get pods -n ${NAMESPACE} -o wide"
 
-echo ""
-echo "  ✓ Zero config — Auto Mode handled everything."
+caption "No Karpenter to install or run. Auto Mode manages it."
 pause
 
 # ─── 2. Spot NodePool ───────────────────────────────────────────────────────
-header "2. Enable Spot with a custom NodePool"
+header "2. Spot + Graviton with one NodePool"
 
 run "kubectl get nodepools"
 pause 3
@@ -104,8 +124,7 @@ done
 
 run "kubectl get nodes -L karpenter.sh/capacity-type,node.kubernetes.io/instance-type"
 
-echo ""
-echo "  ✓ One NodePool manifest — Spot enabled."
+caption "Spot and Graviton: one NodePool, Karpenter already there."
 pause
 
 # ─── 3. CPU-intensive workload ──────────────────────────────────────────────
@@ -130,10 +149,9 @@ for i in $(seq 1 24); do
 done
 
 pause 3
-run "kubectl get nodes -o custom-columns=NAME:.metadata.name,INSTANCE-TYPE:.metadata.labels.node\\.kubernetes\\.io/instance-type,CAPACITY:.metadata.labels.karpenter\\.sh/capacity-type"
+run "kubectl get nodes -L node.kubernetes.io/instance-type,kubernetes.io/arch,karpenter.sh/capacity-type"
 
-echo ""
-echo "  ✓ c-family instance selected for CPU workload."
+caption "CPU-heavy pods. Karpenter picked: $(placement compute-intensive)"
 pause
 
 # ─── 4. Memory-intensive workload ───────────────────────────────────────────
@@ -158,14 +176,40 @@ for i in $(seq 1 24); do
 done
 
 pause 3
-run "kubectl get nodes -o custom-columns=NAME:.metadata.name,INSTANCE-TYPE:.metadata.labels.node\\.kubernetes\\.io/instance-type,CAPACITY:.metadata.labels.karpenter\\.sh/capacity-type"
+run "kubectl get nodes -L node.kubernetes.io/instance-type,kubernetes.io/arch,karpenter.sh/capacity-type"
 
-echo ""
-echo "  ✓ r-family instance selected for memory workload."
+caption "Memory-heavy pods. Karpenter picked: $(placement memory-intensive)"
 pause
 
-# ─── 5. Sub-minute scaling ──────────────────────────────────────────────────
-header "5. Sub-minute scaling"
+# ─── 5. Same app on Graviton ────────────────────────────────────────────────
+header "5. Same app, Graviton"
+
+GRAV_START=$(date +%s)
+run "kubectl apply -f ${MANIFESTS_DIR}/07-graviton-workload.yaml"
+
+echo ""
+echo "  ⏱ Waiting for Graviton pods..."
+for i in $(seq 1 24); do
+  sleep 5
+  NOW=$(date +%s)
+  ELAPSED=$(( NOW - GRAV_START ))
+  READY=$(kubectl get pods -n ${NAMESPACE} -l app=sample-app-graviton --no-headers 2>/dev/null | grep Running | wc -l | tr -d " ")
+  printf "    [%3ds] Pods running: %s/3\n" "${ELAPSED}" "${READY}"
+  if [ "${READY}" -ge 3 ]; then
+    echo ""
+    echo "    ✓ Graviton pods ready in ${ELAPSED}s"
+    break
+  fi
+done
+
+pause 3
+run "kubectl get nodes -L node.kubernetes.io/instance-type,kubernetes.io/arch,karpenter.sh/capacity-type"
+
+caption "Same container image, now on $(placement sample-app-graviton). No rebuild."
+pause
+
+# ─── 6. Sub-minute scaling ──────────────────────────────────────────────────
+header "6. Sub-minute scaling"
 
 NODES_BEFORE=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
 PODS_BEFORE=$(kubectl get pods -n ${NAMESPACE} --no-headers | wc -l | tr -d ' ')
@@ -202,12 +246,11 @@ NODES_AFTER=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
 
 run "kubectl get nodes -L karpenter.sh/capacity-type,node.kubernetes.io/instance-type"
 
-echo ""
-echo "  ✓ Nodes: ${NODES_BEFORE} → ${NODES_AFTER}  |  All 30 pods ready in ${TOTAL}s"
+caption "30 pods: ${NODES_BEFORE} → ${NODES_AFTER} nodes, all ready in ${TOTAL}s."
 pause
 
-# ─── 6. Consolidation ──────────────────────────────────────────────────────
-header "6. Consolidation"
+# ─── 7. Consolidation ──────────────────────────────────────────────────────
+header "7. Consolidation"
 
 NODE_BEFORE=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
 run "kubectl get nodes -L karpenter.sh/capacity-type,node.kubernetes.io/instance-type"
@@ -215,6 +258,7 @@ pause 3
 
 run "kubectl scale deployment compute-intensive --replicas=0 -n ${NAMESPACE}"
 run "kubectl scale deployment memory-intensive --replicas=0 -n ${NAMESPACE}"
+run "kubectl scale deployment sample-app-graviton --replicas=0 -n ${NAMESPACE}"
 run "kubectl scale deployment sample-app --replicas=3 -n ${NAMESPACE}"
 
 CONSOLIDATION_START=$(date +%s)
@@ -248,8 +292,7 @@ NODE_AFTER=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
 
 run "kubectl get nodes -L karpenter.sh/capacity-type,node.kubernetes.io/instance-type"
 
-echo ""
-echo "  ✓ Nodes: ${NODE_BEFORE} → ${NODE_AFTER}  (${TOTAL}s)"
+caption "Unused nodes removed: ${NODE_BEFORE} → ${NODE_AFTER} in ${TOTAL}s. You stop paying for them."
 pause
 
 # ─── Done ───────────────────────────────────────────────────────────────────
