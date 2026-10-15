@@ -5,7 +5,7 @@
 set -e
 
 CLUSTER_NAME="${1:-eks-auto-demo}"
-REGION="${2:-eu-central-1}"
+REGION="${2:-us-west-2}"
 DASHBOARD_NAME="EKS-AutoMode-Demo-${CLUSTER_NAME}"
 
 echo "=== CloudWatch Dashboard Cleanup ==="

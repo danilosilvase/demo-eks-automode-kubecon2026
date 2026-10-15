@@ -5,7 +5,7 @@
 set -e
 
 CLUSTER_NAME="${1:-eks-auto-demo}"
-REGION="${2:-eu-central-1}"
+REGION="${2:-us-west-2}"
 DASHBOARD_NAME="EKS-AutoMode-Demo-${CLUSTER_NAME}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -57,7 +57,7 @@ echo ""
 echo ">> Generating dashboard JSON..."
 DASHBOARD_BODY=$(cat "${SCRIPT_DIR}/dashboard.json" \
   | sed "s/eks-auto-demo/${CLUSTER_NAME}/g" \
-  | sed "s/eu-central-1/${REGION}/g")
+  | sed "s/us-west-2/${REGION}/g")
 
 # Step 3: Deploy the dashboard
 echo ">> Deploying CloudWatch dashboard: ${DASHBOARD_NAME}..."

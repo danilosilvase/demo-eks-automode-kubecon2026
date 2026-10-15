@@ -1,7 +1,7 @@
 variable "aws_region" {
   description = "AWS region"
   type        = string
-  default     = "eu-central-1"
+  default     = "us-west-2"
 }
 
 variable "cluster_name" {
@@ -13,7 +13,7 @@ variable "cluster_name" {
 variable "kubernetes_version" {
   description = "Kubernetes version"
   type        = string
-  default     = "1.35"
+  default     = "1.37"
 }
 
 variable "vpc_cidr" {
