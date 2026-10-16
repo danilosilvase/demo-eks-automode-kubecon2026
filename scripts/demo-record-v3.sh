@@ -21,9 +21,12 @@ banner() { tmux -L "$TSOCK" set -g status-left " ${1} " >/dev/null 2>&1 || true;
 type_cmd() { echo ""; echo -n "  \$ "; for (( i=0; i<${#1}; i++ )); do echo -n "${1:$i:1}"; sleep 0.03; done; echo ""; sleep 0.4; }
 run() { type_cmd "$1"; eval "$1"; }
 # LIVE=1: wait for Enter instead of sleeping, so the presenter sets the pace
+# Drop keys pressed while a step was running. Fractional read timeouts need bash 4+;
+# macOS /bin/bash is 3.2, so skip the flush there instead of printing an error.
+flush_keys() { [ "${BASH_VERSINFO[0]:-3}" -ge 4 ] || return 0; while read -r -t 0.05 _; do :; done; }
 pause() {
   if [ "${LIVE:-0}" = "1" ]; then
-    while read -r -t 0.05 _; do :; done   # drop keys pressed during waits
+    flush_keys
     printf "\n  \033[2m[Enter] next\033[0m"; read -r _
   else sleep "${1:-$PAUSE}"; fi
 }
