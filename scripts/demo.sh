@@ -1,6 +1,7 @@
 #!/bin/bash
 # =============================================================================
-# EKS Auto Mode demo v4: follows the KubeCon NA 2026 deck
+# EKS Auto Mode cost optimization demo: follows the KubeCon NA 2026 deck
+# Normally started by scripts/booth.sh (loop) or scripts/live.sh (menu), which build the tmux layout.
 #   Core (6): 1 zero config  2 Spot  3 CPU  4 memory  5 burst  6 consolidation
 #   Bonus:    g Graviton (same image on arm64; caption reports what really happened)
 # Modes
@@ -338,7 +339,7 @@ reset_cluster() {
 
 clean_or_exit() {
   if kubectl get nodepool cost-optimized >/dev/null 2>&1 || [ "$(node_count)" -gt 0 ]; then
-    echo ""; echo "  Cluster is not clean. Run ./reset-demo.sh first."; exit 1
+    echo ""; echo "  Cluster is not clean. Run ./scripts/reset-demo.sh first."; exit 1
   fi
 }
 

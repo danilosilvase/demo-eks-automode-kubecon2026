@@ -16,6 +16,18 @@ variable "kubernetes_version" {
   default     = "1.37"
 }
 
+variable "endpoint_public_access" {
+  description = "Expose the EKS API endpoint publicly. Default false: the API is private and reached through scripts/tunnel.sh (SSM port-forward)."
+  type        = bool
+  default     = false
+}
+
+variable "endpoint_public_access_cidrs" {
+  description = "CIDRs allowed to reach the public API endpoint, only used when endpoint_public_access = true. Use your own /32, never 0.0.0.0/0."
+  type        = list(string)
+  default     = []
+}
+
 variable "vpc_cidr" {
   description = "CIDR block for VPC"
   type        = string

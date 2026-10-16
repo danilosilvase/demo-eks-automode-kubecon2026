@@ -2,7 +2,6 @@
 .terraform/
 *.tfstate
 *.tfstate.backup
-.terraform.lock.hcl
 tfplan
 *.log
 
@@ -14,3 +13,8 @@ tfplan
 .idea/
 *.swp
 *.swo
+
+# Local demo artefacts
+kubeconfig
+*.cast
+*.gif

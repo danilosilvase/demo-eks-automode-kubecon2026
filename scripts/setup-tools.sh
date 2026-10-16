@@ -1,5 +1,6 @@
 #!/bin/bash
-# Install the tools the EKS Auto Mode demo needs: tmux and eks-node-viewer.
+# Install the tools the EKS Auto Mode demo needs: tmux and eks-node-viewer (checks kubectl,
+# and optionally the AWS CLI + Session Manager plugin used by scripts/tunnel.sh).
 # Works on macOS (Homebrew) and on Linux, including the EKS Workshop browser IDE
 # (downloads the eks-node-viewer release binary, no Go or Homebrew required).
 
@@ -74,6 +75,13 @@ else
   echo "   ✗ kubectl not found: https://kubernetes.io/docs/tasks/tools/"
   MISSING=1
 fi
+echo ""
+
+# --- Optional: only needed for the private API endpoint (scripts/tunnel.sh) ---
+echo ">> aws CLI + Session Manager plugin (optional, for ./scripts/tunnel.sh)"
+command -v aws &>/dev/null && echo "   ✓ aws CLI" || echo "   - aws CLI not found: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"
+command -v session-manager-plugin &>/dev/null && echo "   ✓ session-manager-plugin" || \
+  echo "   - session-manager-plugin not found: https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html"
 echo ""
 
 if [ ${MISSING} -eq 0 ]; then
