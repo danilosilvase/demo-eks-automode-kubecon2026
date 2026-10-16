@@ -12,7 +12,7 @@ set -e
 
 NAMESPACE="demo-app"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MANIFESTS_DIR="${SCRIPT_DIR}/../manifests"
+MANIFESTS_DIR="${MANIFESTS_DIR:-${SCRIPT_DIR}/../manifests}"
 PAUSE="${PAUSE:-10}"
 
 type_cmd() {
