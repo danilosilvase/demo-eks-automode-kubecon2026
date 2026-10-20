@@ -24,7 +24,11 @@ module "eks" {
 
   name                   = local.name
   kubernetes_version     = var.kubernetes_version
-  endpoint_public_access = true
+  endpoint_public_access = var.endpoint_public_access
+
+  # Private endpoint is always on, so nodes and the SSM access host reach the API inside the VPC
+  endpoint_private_access      = true
+  endpoint_public_access_cidrs = var.endpoint_public_access ? var.endpoint_public_access_cidrs : null
 
   enable_cluster_creator_admin_permissions = true
 
