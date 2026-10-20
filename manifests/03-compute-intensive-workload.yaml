@@ -19,9 +19,9 @@ spec:
     spec:
       containers:
       - name: stress
-        image: polinux/stress
-        command: ["stress"]
-        args: ["--cpu", "2", "--timeout", "3600s", "--verbose"]
+        # Multi-arch image (amd64 + arm64), pinned by digest
+        image: colinianking/stress-ng@sha256:501bb2ec4524b59ca0061c435de4f8f5a7592df938394fd0223208579b066d52
+        args: ["--cpu", "2", "--timeout", "3600s", "--metrics-brief"]
         resources:
           requests:
             cpu: 2000m

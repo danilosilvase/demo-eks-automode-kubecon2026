@@ -9,7 +9,7 @@ Reduce idle capacity costs by 40-60% through automatic workload consolidation du
 ```bash
 kubectl get nodes -L karpenter.sh/capacity-type,node.kubernetes.io/instance-type
 ```
-Expected: 2-3 nodes (c-family for compute, r-family for memory, all Spot)
+Expected: 2-3 nodes, sized to the CPU and memory workloads, mostly Spot
 
 ### Step 2: Scale Down Workloads
 ```bash

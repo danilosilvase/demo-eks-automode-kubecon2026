@@ -7,7 +7,7 @@
       "x": 0,
       "type": "text",
       "properties": {
-        "markdown": "# EKS Auto Mode — KubeCon 2026 Demo Dashboard\nReal-time cluster metrics for **eks-auto-demo** | Region: **eu-central-1**"
+        "markdown": "# EKS Auto Mode: KubeCon 2026 Demo Dashboard\nReal-time cluster metrics for **eks-auto-demo** | Region: **us-west-2**"
       }
     },
     {
@@ -22,7 +22,7 @@
         ],
         "view": "timeSeries",
         "stacked": false,
-        "region": "eu-central-1",
+        "region": "us-west-2",
         "title": "📊 Node Count Over Time",
         "period": 10,
         "yAxis": { "left": { "min": 0 } },
@@ -45,7 +45,7 @@
         ],
         "view": "timeSeries",
         "stacked": false,
-        "region": "eu-central-1",
+        "region": "us-west-2",
         "title": "🚀 Pod Count (demo-app)",
         "period": 10,
         "yAxis": { "left": { "min": 0 } }
@@ -62,7 +62,7 @@
           [ "ContainerInsights", "pod_number_of_container_restarts", "ClusterName", "eks-auto-demo", "Namespace", "demo-app", { "stat": "Sum", "label": "Restarts" } ]
         ],
         "view": "singleValue",
-        "region": "eu-central-1",
+        "region": "us-west-2",
         "title": "⚠️ Pod Restarts",
         "period": 60
       }
@@ -79,7 +79,7 @@
         ],
         "view": "timeSeries",
         "stacked": false,
-        "region": "eu-central-1",
+        "region": "us-west-2",
         "title": "🔥 Cluster CPU Utilization",
         "period": 10,
         "yAxis": { "left": { "min": 0, "max": 100 } },
@@ -103,7 +103,7 @@
         ],
         "view": "timeSeries",
         "stacked": false,
-        "region": "eu-central-1",
+        "region": "us-west-2",
         "title": "💾 Cluster Memory Utilization",
         "period": 10,
         "yAxis": { "left": { "min": 0, "max": 100 } },
@@ -128,7 +128,7 @@
         ],
         "view": "timeSeries",
         "stacked": false,
-        "region": "eu-central-1",
+        "region": "us-west-2",
         "title": "📈 CPU: Reserved vs Used (Right-Sizing)",
         "period": 10,
         "yAxis": { "left": { "min": 0, "max": 100 } }
@@ -147,7 +147,7 @@
         ],
         "view": "timeSeries",
         "stacked": false,
-        "region": "eu-central-1",
+        "region": "us-west-2",
         "title": "📈 Memory: Reserved vs Used (Right-Sizing)",
         "period": 10,
         "yAxis": { "left": { "min": 0, "max": 100 } }
@@ -164,7 +164,7 @@
           [ "ContainerInsights", "node_count", "ClusterName", "eks-auto-demo", { "stat": "Maximum" } ]
         ],
         "view": "singleValue",
-        "region": "eu-central-1",
+        "region": "us-west-2",
         "title": "🖥️ Current Nodes",
         "period": 10
       }
@@ -180,7 +180,7 @@
           [ "ContainerInsights", "namespace_number_of_running_pods", "ClusterName", "eks-auto-demo", "Namespace", "demo-app", { "stat": "Maximum" } ]
         ],
         "view": "singleValue",
-        "region": "eu-central-1",
+        "region": "us-west-2",
         "title": "🏃 Running Pods (demo-app)",
         "period": 10
       }
@@ -196,7 +196,7 @@
           [ "ContainerInsights", "node_cpu_utilization", "ClusterName", "eks-auto-demo", { "stat": "Average" } ]
         ],
         "view": "gauge",
-        "region": "eu-central-1",
+        "region": "us-west-2",
         "title": "⚡ CPU Utilization Gauge",
         "period": 10,
         "yAxis": { "left": { "min": 0, "max": 100 } }
